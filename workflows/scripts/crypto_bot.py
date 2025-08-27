@@ -125,7 +125,7 @@ class CryptoBot:
         print(summary)
         return summary
 
-    def ask_claude_with_data(self, question: str, symbol="XRPUSDT") -> str:
+    def ask_claude_with_data(self, question: str, symbol="BTCUSDT") -> str:
         """结合市场数据询问Claude"""
         # 获取市场数据
         market_data = self.get_market_summary(symbol)
@@ -229,7 +229,7 @@ def main():
             if user_input:
                 # 解析输入，检查是否包含币种
                 parts = user_input.split(' ', 1)
-                
+
                 # 检查是否是单独的代币名（如 BTC, ETH等）
                 if len(parts) == 1 and parts[0].upper() in ['BTC', 'ETH', 'XRP', 'BNB', 'ADA', 'SOL', 'DOGE', 'MATIC', 'DOT', 'AVAX', 'SHIB', 'LTC', 'UNI', 'LINK', 'TRX']:
                     symbol = parts[0].upper() + 'USDT'

@@ -122,7 +122,7 @@ class CryptoBot:
 📦 24h交易量: {volume_24h:,.0f}
 📉 10期均线: ${sma_10:,.2f}
 📉 20期均线: ${sma_20:,.2f}"""
-
+        print(summary)
         return summary
 
     def ask_claude_with_data(self, question: str, symbol="BTCUSDT") -> str:
@@ -158,21 +158,33 @@ class CryptoBot:
         }
 
         response = requests.post(url, json=payload, headers=headers, timeout=60, stream=True)
-        print(response)
-        full_response = ""
-        for line in response.iter_lines():
-            if line:
-                line_text = line.decode('utf-8')
-                if line_text.startswith('data: '):
-                    data_text = line_text[6:]
-                    if data_text.strip() == '[DONE]':
-                        break
 
-                    data = json.loads(data_text)
-                    if 'delta' in data and 'text' in data['delta']:
-                        chunk_text = data['delta']['text']
-                        print(chunk_text, end='', flush=True)
-                        full_response += chunk_text
+        full_response = ""
+        buffer = ""
+
+        for chunk in response:
+            if chunk:
+                buffer += chunk.decode('utf-8', errors='ignore')
+
+                # 处理完整的行
+                while '\n' in buffer:
+                    line, buffer = buffer.split('\n', 1)
+                    line = line.strip()
+
+                    if line.startswith('data: '):
+                        data_text = line[6:]
+                        if data_text.strip() == '[DONE]':
+                            break
+
+                        try:
+                            data = json.loads(data_text)
+                            if data.get('type') == 'content_block_delta':
+                                if 'delta' in data and data['delta'].get('type') == 'text_delta':
+                                    chunk_text = data['delta']['text']
+                                    print(chunk_text, end='', flush=True)
+                                    full_response += chunk_text
+                        except json.JSONDecodeError:
+                            continue
 
         print()
         return full_response

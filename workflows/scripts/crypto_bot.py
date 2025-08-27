@@ -125,7 +125,7 @@ class CryptoBot:
         print(summary)
         return summary
 
-    def ask_claude_with_data(self, question: str, symbol="BTCUSDT") -> str:
+    def ask_claude_with_data(self, question: str, symbol="XRPUSDT") -> str:
         """结合市场数据询问Claude"""
         # 获取市场数据
         market_data = self.get_market_summary(symbol)
@@ -194,18 +194,33 @@ def main():
 
     if len(sys.argv) > 1:
         # 命令行模式
-        question = " ".join(sys.argv[1:])
-        # 检查是否指定了特定币种
-        if len(sys.argv) > 2 and sys.argv[1].upper().endswith('USDT'):
-            symbol = sys.argv[1].upper()
-            question = " ".join(sys.argv[2:])
-            bot.ask_claude_with_data(question, symbol)
+        if len(sys.argv) == 2:
+            # 只有一个参数，检查是否是代币名
+            token = sys.argv[1].upper()
+            if token in ['BTC', 'ETH', 'XRP', 'BNB', 'ADA', 'SOL', 'DOGE', 'MATIC', 'DOT', 'AVAX', 'SHIB', 'LTC', 'UNI', 'LINK', 'TRX']:
+                symbol = token + 'USDT'
+                question = f"{token}日内走势如何？15分钟走势分析"
+                bot.ask_claude_with_data(question, symbol)
+            else:
+                question = sys.argv[1]
+                bot.ask_claude_with_data(question)
         else:
-            bot.ask_claude_with_data(question)
+            # 多个参数
+            question = " ".join(sys.argv[1:])
+            # 检查是否指定了特定币种
+            if len(sys.argv) > 2 and sys.argv[1].upper().endswith('USDT'):
+                symbol = sys.argv[1].upper()
+                question = " ".join(sys.argv[2:])
+                bot.ask_claude_with_data(question, symbol)
+            else:
+                bot.ask_claude_with_data(question)
     else:
         # 交互模式
         print("🚀 加密货币分析机器人 (输入quit退出)")
-        print("💡 用法示例: 'ETHUSDT 以太坊今天走势如何?' 或直接问问题")
+        print("💡 用法示例:")
+        print("   - 输入代币名: 'BTC' 或 'ETH' (自动分析日内和15分钟走势)")
+        print("   - 指定交易对: 'ETHUSDT 以太坊今天走势如何?'")
+        print("   - 直接提问: '比特币适合长期持有吗?'")
 
         while True:
             user_input = input("\n❓ 问题: ").strip()
@@ -214,11 +229,19 @@ def main():
             if user_input:
                 # 解析输入，检查是否包含币种
                 parts = user_input.split(' ', 1)
-                if len(parts) > 1 and parts[0].upper().endswith('USDT'):
+                
+                # 检查是否是单独的代币名（如 BTC, ETH等）
+                if len(parts) == 1 and parts[0].upper() in ['BTC', 'ETH', 'XRP', 'BNB', 'ADA', 'SOL', 'DOGE', 'MATIC', 'DOT', 'AVAX', 'SHIB', 'LTC', 'UNI', 'LINK', 'TRX']:
+                    symbol = parts[0].upper() + 'USDT'
+                    question = f"{parts[0].upper()}日内走势如何？15分钟走势分析"
+                    bot.ask_claude_with_data(question, symbol)
+                elif len(parts) > 1 and parts[0].upper().endswith('USDT'):
+                    # 指定了完整交易对
                     symbol = parts[0].upper()
                     question = parts[1]
                     bot.ask_claude_with_data(question, symbol)
                 else:
+                    # 普通问题，使用默认币种
                     bot.ask_claude_with_data(user_input)
 
 if __name__ == "__main__":

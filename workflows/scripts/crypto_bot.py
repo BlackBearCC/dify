@@ -1198,13 +1198,12 @@ class CryptoBot:
             return {"error": f"下单失败: {str(e)}"}
 
     def set_leverage(self, symbol: str, leverage: int):
-        """设置杠杆倍数"""
+        """设置杠杆倍数 - 完全由LLM决定，无系统限制"""
         try:
             if not self.binance_client:
                 return {"error": "Binance客户端未初始化"}
             
-            if leverage < 1 or leverage > 125:
-                return {"error": "杠杆倍数必须在1-125之间"}
+            # 移除杠杆限制，让LLM自主决定
             
             result = self.binance_client.futures_change_leverage(
                 symbol=symbol,
@@ -1293,7 +1292,7 @@ class CryptoBot:
                 results.append({"action": "CLOSE", "result": result})
                 
             elif action in ['BUY', 'SELL']:
-                # 设置杠杆
+                # 设置杠杆 - 由LLM决定，不做限制
                 if leverage > 1:
                     lev_result = self.set_leverage(symbol, leverage)
                     results.append({"action": "SET_LEVERAGE", "result": lev_result})
@@ -1344,9 +1343,7 @@ class CryptoBot:
             quantity = decision_data.get('quantity', 0)
             leverage = decision_data.get('leverage', 1)
             
-            # 检查1: 杠杆倍数限制
-            if leverage > 100:
-                return {"allowed": False, "reason": f"杠杆倍数{leverage}超过最大限制100倍"}
+            # 移除杠杆限制，由LLM自主决定
             
             # 检查2: 最小交易量
             if action in ['BUY', 'SELL'] and quantity <= 0:
@@ -1984,7 +1981,7 @@ class CryptoBot:
         # 代理5: 综合分析师 - 整合所有分析结果
         print("🎯 [首席分析师] 开始整合分析...", flush=True)
         integration_prompt = f"""
-你是首席分析师，请整合以下四个专业代理的分析报告，并以YAML格式输出。
+你是首席分析师，请整合以下四个专业代理的分析报告，给出综合性的专业分析。
 
 === 技术分析师报告 ===
 {kline_analysis}
@@ -2001,93 +1998,42 @@ class CryptoBot:
 === 用户问题 ===
 {question}
 
-请严格按照以下YAML格式输出：
-```yaml
-概要: "50字以内的简洁分析摘要"
-详细: |
-  基于技术面、市场情绪、基本面和宏观面的综合分析：
-  
-  1. 技术面分析要点：
-     - [关键技术信号]
-     
-  2. 市场情绪评估：
-     - [市场心理状态]
-     
-  3. 基本面因素：
-     - [基本面核心要点]
-     
-  4. 宏观环境影响：
-     - [宏观经济影响]
-     
-  5. 综合投资建议：
-     - 短期策略：[具体建议]
-     - 中期策略：[具体建议]
-     - 风险提示：[关键风险点]
-     
-  6. 关键转折点：
-     - [重要价位或时间节点]
-```
+请基于技术面、市场情绪、基本面和宏观面的综合分析，提供全面的投资建议。
+注意平衡各方观点，给出客观专业的结论，重点关注：
+1. 各维度分析的一致性和分歧点
+2. 短期和中长期的投资策略差异
+3. 风险因素的多维度评估
+4. 关键的市场转折点和信号
 
-注意：
-- 概要必须在50字以内
-- 详细部分要平衡各方观点，给出客观专业的结论
-- 重点关注各维度分析的一致性和分歧点
 """
 
         final_analysis = self._call_claude_api(integration_prompt, "首席分析师")
         
-        # 解析YAML格式的首席分析结果
+        # 保存首席分析师结果到数据库
         try:
-            # 提取YAML内容
-            import re
-            yaml_match = re.search(r'```yaml\s*(.*?)\s*```', final_analysis, re.DOTALL)
-            if yaml_match:
-                yaml_content = yaml_match.group(1)
-                chief_data = yaml.safe_load(yaml_content)
-                summary = chief_data.get('概要', final_analysis[:50])
-                
-                # 保存首席分析师结果到数据库
-                self.save_to_database(
-                    data_type='chief_analysis',
-                    agent_name='首席分析师',
-                    symbol=symbol,
-                    content=final_analysis,
-                    summary=summary[:50],
-                    metadata=chief_data,
-                    status='completed'
-                )
-            else:
-                # 如果没有YAML格式，直接保存
-                self.save_to_database(
-                    data_type='chief_analysis',
-                    agent_name='首席分析师',
-                    symbol=symbol,
-                    content=final_analysis,
-                    summary=final_analysis[:50],
-                    status='completed'
-                )
-        except Exception as e:
-            print(f"⚠️ 解析首席分析师YAML格式失败: {e}")
-            # 仍然保存原始内容
+            # 生成摘要（取开头部分作为摘要）
+            summary = final_analysis[:50] if final_analysis else '首席分析师综合分析'
+            
             self.save_to_database(
                 data_type='chief_analysis',
                 agent_name='首席分析师',
                 symbol=symbol,
                 content=final_analysis,
-                summary=final_analysis[:50],
+                summary=summary,
                 status='completed'
             )
+        except Exception as e:
+            print(f"⚠️ 保存首席分析师结果失败: {e}")
         
         print("\n" + "="*80, flush=True)
 
         # 代理6: 交易员 - 做出具体交易决策
         print("💰 [交易员] 制定交易策略...", flush=True)
         
-        # 获取当前账户状态和安全限额
+        # 获取当前账户状态
         print("📊 获取账户信息...", flush=True)
         account_balance = self.get_account_balance()
         current_positions = self.get_current_positions()
-        safe_limits = self.get_safe_trading_limits()
         
         # 打印账户信息
         print("💰 当前账户余额:")
@@ -2114,17 +2060,7 @@ class CryptoBot:
             else:
                 print("  ✅ 无持仓")
         
-        print("⚖️ 安全交易限额:")
-        if safe_limits and 'account_balance' in safe_limits:
-            print(f"  账户余额: {safe_limits['account_balance']:.2f} USDT")
-            print(f"  最大仓位: {safe_limits['max_position_size']:.6f} BTC")
-            print(f"  推荐杠杆: {safe_limits['recommended_leverage']}x")
-            print(f"  单笔风险: {safe_limits['max_risk_per_trade']*100:.1f}% 资金")
-        else:
-            print("  ⚠️ 无法获取安全限额，使用默认值")
-            print("  默认最大仓位: 0.001 BTC")
-            print("  默认推荐杠杆: 5x")
-            print("  默认单笔风险: 10% 资金")
+
         
         # 获取最近10次首席分析概要给交易员参考
         recent_chief_analysis = self.get_recent_chief_analysis(10)
@@ -2141,14 +2077,13 @@ class CryptoBot:
 === 当前账户状态 ===
 余额信息: {json.dumps(account_balance, indent=2, ensure_ascii=False)}
 当前持仓: {json.dumps(current_positions, indent=2, ensure_ascii=False)}
-安全限额建议: {json.dumps(safe_limits, indent=2, ensure_ascii=False)}
 
 === 最近10次首席分析概要（供参考） ===
 {json.dumps(recent_chief_analysis, indent=2, ensure_ascii=False)}
 
 === 交易参数要求 ===
 - 交易标的: {symbol}
-- 风险控制: 严格遵守6层风险控制体系
+- 完全自主决策: 你可以根据分析结果自主决定所有交易参数
 - 输出格式: 必须是JSON格式，以便自动执行
 
 请输出以下JSON格式的交易决策：
@@ -2169,13 +2104,13 @@ class CryptoBot:
 注意：
 1. quantity必须是具体的数量（如0.001 BTC）
 2. 价格必须是具体数值（如95000表示95000 USDT）
-3. leverage在1-100倍之间
+3. leverage杠杆倍数由你自主决定，无系统限制
 4. confidence是置信度百分比（0-100）
 5. reasoning必须包含技术面、基本面、市场情绪的综合考虑
-6. 参考历史首席分析的概要信息，学习之前的分析思路
-7. 避免重复之前失败的决策模式
+6. 参考账户余额状况和历史交易表现
+7. 根据市场波动性和个人风险偏好决定杠杆和仓位
 
-请基于分析结果给出明确可执行的JSON决策。
+请基于综合分析给出明确可执行的JSON决策。
 """
 
         trading_decision = self._call_claude_api(trading_prompt, "交易员")

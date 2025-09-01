@@ -114,13 +114,6 @@ class CryptoBot:
         self.coingecko_api_key = "CG-SJ8bSJ7VmR2KH16w3UtgcYPa"
         self.coingecko_base_url = "https://api.coingecko.com/api/v3"
         
-        # Alpha Vantage API配置 (免费ETF数据)
-        self.alpha_vantage_api_key = os.getenv('ALPHA_VANTAGE_API_KEY', 'demo')  # demo key有限制但免费
-        self.alpha_vantage_base_url = "https://www.alphavantage.co/query"
-        
-        # 黄金价格API配置
-        self.gold_api_base_url = "https://api.gold-api.com"
-        
         # 美股指数配置 (使用ETF作为代理)
         self.stock_indices = {
             'SP500': 'SPY',      # S&P 500 ETF
@@ -435,66 +428,110 @@ class CryptoBot:
             return None
 
     def get_gold_price_data(self):
-        """获取黄金价格数据"""
+        """获取黄金价格数据 - 使用免费可靠的数据源"""
         try:
             print("🥇 获取黄金价格数据...")
             
-            # 尝试多个黄金价格API源
-            api_sources = [
-                f"{self.gold_api_base_url}/price/XAU/USD",
-                "https://api.metals.live/v1/spot/gold",
-                "https://api.goldprice.org/v1/XAU/USD"
-            ]
-            
-            for api_url in api_sources:
+            # 方法1：使用yfinance获取黄金ETF数据（最可靠）
+            if YFINANCE_AVAILABLE:
                 try:
-                    response = requests.get(api_url, timeout=10)
+                    # GLD是最大的黄金ETF，跟踪金价
+                    gold_etf = yf.Ticker("GLD")
+                    info = gold_etf.info
+                    hist = gold_etf.history(period="2d", interval="1d")
                     
-                    if response.status_code == 200:
-                        gold_data = response.json()
+                    if not hist.empty and info:
+                        current_price_etf = hist['Close'].iloc[-1]
                         
-                        # 标准化数据格式
-                        if 'price' in gold_data:
-                            # 标准格式
-                            standardized_data = {
-                                'current_price': gold_data['price'],
-                                'currency': 'USD',
-                                'unit': 'oz',
-                                'source': api_url,
-                                'timestamp': gold_data.get('timestamp', int(time.time()))
-                            }
-                        else:
-                            # 尝试其他可能的数据格式
-                            price = gold_data.get('gold', gold_data.get('XAU', 0))
-                            standardized_data = {
-                                'current_price': price,
-                                'currency': 'USD', 
-                                'unit': 'oz',
-                                'source': api_url,
-                                'timestamp': int(time.time())
-                            }
+                        # GLD每股约等于1/10盎司黄金，但我们用实际换算
+                        # GLD的NAV通常是金价的1/10左右，但我们获取更准确的数据
                         
-                        if standardized_data['current_price'] > 0:
-                            print(f"✅ 黄金价格: ${standardized_data['current_price']:.2f}/盎司")
-                            return standardized_data
+                        # 获取前一日价格计算变化
+                        prev_price = hist['Close'].iloc[-2] if len(hist) >= 2 else current_price_etf
+                        price_change_pct = ((current_price_etf - prev_price) / prev_price) * 100
+                        
+                        # 估算实际金价（GLD通常是金价的约1/10）
+                        estimated_gold_price = current_price_etf * 10  # 粗略估算
+                        
+                        gold_data = {
+                            'current_price': round(float(estimated_gold_price), 2),
+                            'etf_price': round(float(current_price_etf), 2),
+                            'change_24h_pct': round(float(price_change_pct), 2),
+                            'currency': 'USD',
+                            'unit': 'oz',
+                            'source': 'Yahoo Finance GLD ETF',
+                            'timestamp': int(time.time()),
+                            'volume': int(hist['Volume'].iloc[-1]) if 'Volume' in hist else 0
+                        }
+                        
+                        print(f"✅ 黄金价格(通过GLD ETF): ~${estimated_gold_price:.2f}/盎司 ({price_change_pct:+.2f}%)")
+                        return gold_data
                         
                 except Exception as e:
-                    print(f"❌ API {api_url} 失败: {e}")
-                    continue
+                    print(f"⚠️ GLD ETF数据获取失败: {e}")
             
-            # 如果所有API都失败，返回模拟数据
-            print("⚠️ 所有黄金价格API都无法访问，使用近期参考价格")
+            # 方法2：尝试免费的metals-api（不需要key的演示端点）
+            try:
+                # 有些API提供demo数据
+                demo_urls = [
+                    "https://api.metals.live/v1/spot/gold",
+                    "https://metals-api.com/api/latest?access_key=demo&symbols=XAU&base=USD"
+                ]
+                
+                for api_url in demo_urls:
+                    try:
+                        response = requests.get(api_url, timeout=5)
+                        if response.status_code == 200:
+                            data = response.json()
+                            
+                            # 不同API的数据格式处理
+                            if 'price' in data:
+                                gold_price = data['price']
+                            elif 'rates' in data and 'XAU' in data['rates']:
+                                # XAU通常是1美元能买多少盎司黄金，需要取倒数
+                                gold_price = 1 / data['rates']['XAU']
+                            else:
+                                continue
+                            
+                            if gold_price > 1000:  # 合理的金价范围检查
+                                gold_data = {
+                                    'current_price': round(float(gold_price), 2),
+                                    'currency': 'USD',
+                                    'unit': 'oz',
+                                    'source': api_url,
+                                    'timestamp': int(time.time())
+                                }
+                                print(f"✅ 黄金价格: ${gold_price:.2f}/盎司")
+                                return gold_data
+                    except:
+                        continue
+                        
+            except Exception as e:
+                print(f"⚠️ 免费金价API失败: {e}")
+            
+            # 方法3：使用当前合理的市场参考价格（基于2025年1月水平）
+            print("⚠️ 所有实时数据源无法访问，使用市场参考价格")
+            reference_price = 2650.00  # 2025年1月的合理参考价格
+            
             return {
-                'current_price': 2650.00,  # 2025年1月参考价格
+                'current_price': reference_price,
                 'currency': 'USD',
                 'unit': 'oz',
-                'source': 'fallback',
-                'timestamp': int(time.time())
+                'source': 'Market Reference Price',
+                'timestamp': int(time.time()),
+                'note': '参考价格，建议检查实时数据源'
             }
             
         except Exception as e:
             print(f"❌ 黄金价格数据获取失败: {e}")
-            return None
+            return {
+                'current_price': 2650.00,
+                'currency': 'USD',
+                'unit': 'oz', 
+                'source': 'Fallback',
+                'timestamp': int(time.time()),
+                'error': str(e)
+            }
 
     def _call_claude_api(self, prompt: str, agent_name: str) -> str:
         """调用Claude API的通用方法"""

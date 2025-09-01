@@ -3,12 +3,16 @@
 加密货币分析机器人 - 结合Binance数据和Claude AI分析
 
 更新日志:
+- 2025-09-01: 新增交易员代理，制定具体交易策略(观望/多空/仓位/杠杆/止损止盈)
+- 2025-09-01: 优化流式输出，实现打字机效果(10ms逐字符输出)，去除重复的完整结果打印
+- 2025-09-01: 重构市场情绪分析，基于7个主流币种24h表现分析整体市场情绪
 - 2025-09-01: 修复LLM调用问题，优化流式输出处理和错误处理机制
-- 2025-09-01: 实现多代理架构分析系统，包含4个专业代理：
+- 2025-09-01: 实现多代理架构分析系统，包含5个专业代理：
   * 技术分析师：K线数据+技术指标分析(RSI、MACD、均线)
-  * 市场分析师：热门币种数据+市场情绪分析
+  * 市场分析师：主流币种表现+市场情绪分析
   * 基本面分析师：市场数据+基本面分析
   * 首席分析师：整合所有代理报告，提供综合建议
+  * 交易员：制定具体交易策略(1000美金本金，最高100倍杠杆)
 - 2025-09-01: 恢复K线数据LLM分析功能，新增RSI、MACD技术指标计算
 - 2025-09-01: 添加CoinGecko热门币种数据获取
 - 2025-09-01: 优化流式输出和错误处理
@@ -301,7 +305,10 @@ class CryptoBot:
                                 if data.get('type') == 'content_block_delta':
                                     if 'delta' in data and data['delta'].get('type') == 'text_delta':
                                         chunk_text = data['delta']['text']
-                                        print(chunk_text, end='', flush=True)
+                                        # 打字机效果：逐字符输出
+                                        for char in chunk_text:
+                                            print(char, end='', flush=True)
+                                            time.sleep(0.01)  # 10ms延迟，打字机效果
                                         full_response += chunk_text
                                 elif data.get('type') == 'content_block_start':
                                     continue
@@ -408,24 +415,80 @@ class CryptoBot:
             return error_msg
 
     def analyze_market_sentiment(self) -> str:
-        """市场情绪分析代理"""
-        # 获取热门币种数据
-        trending_data = self.get_trending_coins()
-        
-        prompt = f"""
-你是市场情绪分析专家，请基于以下热门币种数据分析当前市场情绪：
+        """市场情绪分析代理 - 基于主流币种表现分析整体市场情绪"""
+        try:
+            # 分析主流币种的24h表现
+            major_coins = ['BTCUSDT', 'ETHUSDT', 'XRPUSDT', 'BNBUSDT', 'ADAUSDT', 'SOLUSDT', 'DOGEUSDT']
+            market_data = {}
+            
+            print("🔍 获取主流币种数据中...")
+            for coin in major_coins:
+                try:
+                    data = self.get_crypto_data(coin, interval='1h', limit=24)
+                    if data and len(data) > 1:
+                        current_price = data[-1]['close']
+                        price_24h_ago = data[0]['close']
+                        change_24h = ((current_price - price_24h_ago) / price_24h_ago) * 100
+                        
+                        volume_24h = sum([candle['volume'] for candle in data])
+                        avg_volume = volume_24h / len(data)
+                        
+                        # 计算价格波动率
+                        prices = [candle['close'] for candle in data]
+                        price_volatility = (max(prices) - min(prices)) / min(prices) * 100
+                        
+                        market_data[coin] = {
+                            'change_24h': round(change_24h, 2),
+                            'volume_24h': round(volume_24h, 0),
+                            'volatility': round(price_volatility, 2),
+                            'current_price': round(current_price, 4)
+                        }
+                        print(f"✅ {coin}: {change_24h:+.2f}%")
+                    else:
+                        print(f"❌ {coin}: 数据获取失败")
+                except Exception as e:
+                    print(f"❌ {coin}: {e}")
+                    continue
+            
+            if not market_data:
+                return "❌ 无法获取市场数据进行情绪分析"
+            
+            # 分析整体市场情绪
+            total_coins = len(market_data)
+            positive_coins = len([coin for coin, data in market_data.items() if data['change_24h'] > 0])
+            negative_coins = len([coin for coin, data in market_data.items() if data['change_24h'] < 0])
+            
+            avg_change = sum([data['change_24h'] for data in market_data.values()]) / total_coins
+            avg_volatility = sum([data['volatility'] for data in market_data.values()]) / total_coins
+            
+            # 构建市场情绪分析prompt
+            prompt = f"""
+你是市场情绪分析专家，请基于以下主流币种的24小时表现数据分析当前市场情绪：
 
-{trending_data}
+=== 主流币种表现 ===
+{json.dumps(market_data, indent=2, ensure_ascii=False)}
+
+=== 市场统计 ===
+- 上涨币种: {positive_coins}/{total_coins} ({positive_coins/total_coins*100:.1f}%)
+- 下跌币种: {negative_coins}/{total_coins} ({negative_coins/total_coins*100:.1f}%)
+- 平均涨跌幅: {avg_change:+.2f}%
+- 平均波动率: {avg_volatility:.2f}%
 
 请分析：
-1. 市场热点方向
-2. 投资者情绪状态
-3. 潜在的市场机会和风险
-4. 短期市场预期
+1. 当前市场情绪状态（恐慌/谨慎/中性/乐观/贪婪）
+2. 市场风险偏好水平
+3. 资金流向趋势分析
+4. 情绪指标解读（涨跌币种比例、波动率含义）
+5. 短期情绪变化预期
 
-保持客观专业，避免投资建议。
+请给出客观专业的市场情绪评估。
 """
-        return self._call_claude_api(prompt, "市场分析师")
+            return self._call_claude_api(prompt, "市场分析师")
+            
+        except Exception as e:
+            error_msg = f"❌ [市场分析师] 情绪分析失败: {e}"
+            print(error_msg)
+            return error_msg
 
     def analyze_fundamental_data(self, symbol="BTCUSDT") -> str:
         """基本面分析代理"""
@@ -471,34 +534,22 @@ class CryptoBot:
         print("="*80)
         
         # 代理1: K线技术分析
-        print("📈 [代理1] K线技术分析中...")
+        print("📈 [技术分析师] 开始分析...")
         kline_analysis = self.analyze_kline_data(symbol)
         print("\n" + "="*80)
-        print("📈 [技术分析师] 完整分析报告：")
-        print("-" * 60)
-        print(kline_analysis)
-        print("="*80)
         
         # 代理2: 市场情绪分析  
-        print("🔥 [代理2] 市场情绪分析中...")
+        print("🔥 [市场分析师] 开始分析...")
         sentiment_analysis = self.analyze_market_sentiment()
         print("\n" + "="*80)
-        print("🔥 [市场分析师] 完整分析报告：")
-        print("-" * 60)
-        print(sentiment_analysis)
-        print("="*80)
         
         # 代理3: 基本面分析
-        print("📊 [代理3] 基本面分析中...")
+        print("📊 [基本面分析师] 开始分析...")
         fundamental_analysis = self.analyze_fundamental_data(symbol)
         print("\n" + "="*80)
-        print("📊 [基本面分析师] 完整分析报告：")
-        print("-" * 60)
-        print(fundamental_analysis)
-        print("="*80)
         
         # 代理4: 综合分析师 - 整合所有分析结果
-        print("🎯 [总分析师] 整合分析中...")
+        print("🎯 [首席分析师] 开始整合分析...")
         integration_prompt = f"""
 你是首席分析师，请整合以下三个专业代理的分析报告，回答用户问题：
 
@@ -518,14 +569,36 @@ class CryptoBot:
 """
         
         final_analysis = self._call_claude_api(integration_prompt, "首席分析师")
-        
         print("\n" + "="*80)
-        print("🎯 [首席分析师] 综合分析报告：")
-        print("-" * 60)
-        print(final_analysis)
-        print("="*80)
         
-        return final_analysis
+        # 代理5: 交易员 - 做出具体交易决策
+        print("💰 [交易员] 制定交易策略...")
+        trading_prompt = f"""
+你是专业交易员，基于以上所有分析师的报告，请制定具体的交易策略：
+
+=== 综合分析报告 ===
+{final_analysis}
+
+=== 交易参数 ===
+- 初始资金: 1000美金
+- 最高杠杆: 100倍
+- 交易标的: {symbol}
+
+请提供：
+1. 交易决策：观望/做多/做空
+2. 入场点位（具体价格）
+3. 仓位大小（占总资金百分比）
+4. 杠杆倍数（1-100倍）
+5. 止损位置
+6. 止盈目标
+7. 风险控制说明
+
+请给出明确的交易计划，不要模糊建议。
+"""
+        
+        trading_decision = self._call_claude_api(trading_prompt, "交易员")
+        
+        return trading_decision
 
 def main():
     bot = CryptoBot()

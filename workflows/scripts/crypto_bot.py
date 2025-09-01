@@ -3,18 +3,21 @@
 加密货币分析机器人 - 结合Binance数据和Claude AI分析
 
 更新日志:
+- 2025-09-01: 重构市场情绪分析，使用CoinGecko全球市场数据和恐贪指数替代NFT数据
+  * 集成Alternative.me恐贪指数API，直接获取市场心理状态指标
+  * 获取CoinGecko全球市场数据(总市值、交易量、BTC/ETH主导率、市值变化)
+  * 添加热门搜索趋势分析，反映用户兴趣和投资情绪
+  * 获取主流币种详细表现数据，提供更准确的市场情绪评估
 - 2025-09-01: 新增交易员代理，制定具体交易策略(观望/多空/仓位/杠杆/止损止盈)
 - 2025-09-01: 优化流式输出，实现打字机效果(10ms逐字符输出)，去除重复的完整结果打印
-- 2025-09-01: 重构市场情绪分析，基于7个主流币种24h表现分析整体市场情绪
 - 2025-09-01: 修复LLM调用问题，优化流式输出处理和错误处理机制
 - 2025-09-01: 实现多代理架构分析系统，包含5个专业代理：
   * 技术分析师：K线数据+技术指标分析(RSI、MACD、均线)
-  * 市场分析师：主流币种表现+市场情绪分析
+  * 市场分析师：全球市场数据+恐贪指数+搜索趋势分析
   * 基本面分析师：市场数据+基本面分析
   * 首席分析师：整合所有代理报告，提供综合建议
   * 交易员：制定具体交易策略(1000美金本金，最高100倍杠杆)
 - 2025-09-01: 恢复K线数据LLM分析功能，新增RSI、MACD技术指标计算
-- 2025-09-01: 添加CoinGecko热门币种数据获取
 - 2025-09-01: 优化流式输出和错误处理
 - 2025-09-01: 增加代币名快捷分析功能
 """
@@ -95,20 +98,20 @@ class CryptoBot:
         self.claude_api_key = os.getenv('CLAUDE_API_KEY')
         self.claude_base_url = os.getenv('CLAUDE_BASE_URL', 'https://clubcdn.383338.xyz')
         self.claude_model = os.getenv('CLAUDE_MODEL', 'claude-sonnet-4-20250514')
-        
+
         # CoinGecko API配置
         self.coingecko_api_key = "CG-SJ8bSJ7VmR2KH16w3UtgcYPa"
         self.coingecko_base_url = "https://api.coingecko.com/api/v3"
-        
+
         # Binance API配置
         self.binance_api_key = os.getenv('BINANCE_API_KEY')
         self.binance_api_secret = os.getenv('BINANCE_API_SECRET')
         self.binance_testnet = os.getenv('BINANCE_TESTNET', 'true').lower() == 'true'
         self.binance_client = None
-        
+
         # 初始化Binance客户端
         self._init_binance_client()
-        
+
         print("🚀 加密货币分析机器人已启动")
 
     def _init_binance_client(self):
@@ -116,11 +119,11 @@ class CryptoBot:
         if not BINANCE_AVAILABLE:
             print("⚠️ Binance功能不可用：请安装python-binance库")
             return
-        
+
         if not self.binance_api_key or not self.binance_api_secret:
             print("⚠️ Binance功能不可用：未配置API密钥")
             return
-            
+
         try:
             self.binance_client = Client(
                 self.binance_api_key,
@@ -217,15 +220,15 @@ class CryptoBot:
             headers = {
                 "x_cg_demo_api_key": self.coingecko_api_key
             }
-            
+
             response = requests.get(url, headers=headers, timeout=15)
-            
+
             if response.status_code == 200:
                 trending_data = response.json()
                 print(f"✅ 成功获取热门币种数据")
-                
+
                 trending_summary = "🔥 热门币种:\n"
-                
+
                 # 热门搜索币种
                 if 'coins' in trending_data:
                     trending_summary += "\n📈 热门搜索:\n"
@@ -235,20 +238,20 @@ class CryptoBot:
                         symbol = item.get('symbol', '未知')
                         rank = item.get('market_cap_rank', 'N/A')
                         trending_summary += f"{i}. {name} ({symbol.upper()}) - 市值排名: {rank}\n"
-                
+
                 # 热门NFT
                 if 'nfts' in trending_data and trending_data['nfts']:
                     trending_summary += "\n🎨 热门NFT:\n"
                     for i, nft in enumerate(trending_data['nfts'][:3], 1):
                         name = nft.get('name', '未知')
                         trending_summary += f"{i}. {name}\n"
-                
+
                 print(trending_summary)
                 return trending_summary
             else:
                 print(f"❌ 热门币种API返回错误: {response.status_code}")
                 return ""
-                
+
         except Exception as e:
             print(f"❌ 获取热门币种失败: {e}")
             return ""
@@ -256,12 +259,12 @@ class CryptoBot:
     def _call_claude_api(self, prompt: str, agent_name: str) -> str:
         """调用Claude API的通用方法"""
         print(f"🤖 [{agent_name}] 调用模型: {self.claude_model}")
-        
+
         if not self.claude_api_key:
             error_msg = f"❌ [{agent_name}] 未配置Claude API密钥"
             print(error_msg)
             return error_msg
-        
+
         url = f"{self.claude_base_url}/v1/messages"
         payload = {
             "model": self.claude_model,
@@ -277,7 +280,7 @@ class CryptoBot:
 
         try:
             response = requests.post(url, json=payload, headers=headers, timeout=60, stream=True)
-            
+
             if response.status_code != 200:
                 error_msg = f"❌ [{agent_name}] API请求失败: {response.status_code} - {response.text}"
                 print(error_msg)
@@ -289,12 +292,12 @@ class CryptoBot:
             for chunk in response:
                 if chunk:
                     buffer += chunk.decode('utf-8', errors='ignore')
-                    
+
                     # 处理完整的行
                     while '\n' in buffer:
                         line, buffer = buffer.split('\n', 1)
                         line = line.strip()
-                        
+
                         if line.startswith('data: '):
                             data_text = line[6:]
                             if data_text.strip() == '[DONE]':
@@ -321,14 +324,14 @@ class CryptoBot:
                                 continue
 
             print()  # 换行
-            
+
             if not full_response.strip():
                 error_msg = f"❌ [{agent_name}] 未收到有效响应内容"
                 print(error_msg)
                 return error_msg
-                
+
             return full_response.strip()
-            
+
         except requests.exceptions.Timeout:
             error_msg = f"❌ [{agent_name}] 请求超时"
             print(error_msg)
@@ -350,30 +353,30 @@ class CryptoBot:
             error_msg = f"❌ [技术分析师] 无法获取{symbol}的K线数据"
             print(error_msg)
             return error_msg
-        
+
         try:
             # 准备技术分析数据
             df = pd.DataFrame(kline_data)
-            
+
             # 确保有足够的数据进行计算
             if len(df) < 50:
                 limit = 100  # 增加数据量
                 kline_data = self.get_crypto_data(symbol, interval, limit)
                 df = pd.DataFrame(kline_data)
-            
+
             # 计算技术指标
             df['sma_20'] = df['close'].rolling(window=20).mean()
             df['sma_50'] = df['close'].rolling(window=50).mean()
             df['rsi'] = self._calculate_rsi(df['close'])
             df['macd'], df['macd_signal'] = self._calculate_macd(df['close'])
-            
+
             # 获取最近10个有效数据点
             recent_data = df.dropna().tail(10)
             if recent_data.empty:
                 error_msg = f"❌ [技术分析师] 计算技术指标失败，数据不足"
                 print(error_msg)
                 return error_msg
-                
+
             # 转换为字典格式，处理NaN值
             recent_dict = []
             for _, row in recent_data.iterrows():
@@ -387,7 +390,7 @@ class CryptoBot:
                     else:
                         row_dict[col] = value
                 recent_dict.append(row_dict)
-            
+
             # 构建技术分析prompt
             prompt = f"""
 你是专业的技术分析师，请分析{symbol}的{interval}K线数据：
@@ -408,83 +411,159 @@ class CryptoBot:
 请保持简洁专业，重点关注15分钟级别的短期走势。
 """
             return self._call_claude_api(prompt, "技术分析师")
-            
+
         except Exception as e:
             error_msg = f"❌ [技术分析师] 数据处理错误: {e}"
             print(error_msg)
             return error_msg
 
     def analyze_market_sentiment(self) -> str:
-        """市场情绪分析代理 - 基于主流币种表现分析整体市场情绪"""
+        """市场情绪分析代理 - 基于CoinGecko全球市场数据和恐贪指数分析整体市场情绪"""
         try:
-            # 分析主流币种的24h表现
-            major_coins = ['BTCUSDT', 'ETHUSDT', 'XRPUSDT', 'BNBUSDT', 'ADAUSDT', 'SOLUSDT', 'DOGEUSDT']
-            market_data = {}
-            
-            print("🔍 获取主流币种数据中...")
-            for coin in major_coins:
-                try:
-                    data = self.get_crypto_data(coin, interval='1h', limit=24)
-                    if data and len(data) > 1:
-                        current_price = data[-1]['close']
-                        price_24h_ago = data[0]['close']
-                        change_24h = ((current_price - price_24h_ago) / price_24h_ago) * 100
-                        
-                        volume_24h = sum([candle['volume'] for candle in data])
-                        avg_volume = volume_24h / len(data)
-                        
-                        # 计算价格波动率
-                        prices = [candle['close'] for candle in data]
-                        price_volatility = (max(prices) - min(prices)) / min(prices) * 100
-                        
-                        market_data[coin] = {
-                            'change_24h': round(change_24h, 2),
-                            'volume_24h': round(volume_24h, 0),
-                            'volatility': round(price_volatility, 2),
-                            'current_price': round(current_price, 4)
+            print("🔍 获取全球市场数据...")
+            sentiment_data = {}
+
+            # 1. 获取CoinGecko全球市场数据
+            try:
+                global_url = f"{self.coingecko_base_url}/global"
+                headers = {"x_cg_demo_api_key": self.coingecko_api_key}
+                response = requests.get(global_url, headers=headers, timeout=15)
+
+                if response.status_code == 200:
+                    global_data = response.json()
+                    if 'data' in global_data:
+                        data = global_data['data']
+                        sentiment_data['global_market'] = {
+                            'total_market_cap_usd': data.get('total_market_cap', {}).get('usd', 0),
+                            'total_volume_24h_usd': data.get('total_volume', {}).get('usd', 0),
+                            'market_cap_change_24h': data.get('market_cap_change_percentage_24h_usd', 0),
+                            'btc_dominance': data.get('market_cap_percentage', {}).get('btc', 0),
+                            'eth_dominance': data.get('market_cap_percentage', {}).get('eth', 0),
+                            'active_cryptocurrencies': data.get('active_cryptocurrencies', 0)
                         }
-                        print(f"✅ {coin}: {change_24h:+.2f}%")
+                        print("✅ 获取全球市场数据成功")
                     else:
-                        print(f"❌ {coin}: 数据获取失败")
-                except Exception as e:
-                    print(f"❌ {coin}: {e}")
-                    continue
-            
-            if not market_data:
-                return "❌ 无法获取市场数据进行情绪分析"
-            
-            # 分析整体市场情绪
-            total_coins = len(market_data)
-            positive_coins = len([coin for coin, data in market_data.items() if data['change_24h'] > 0])
-            negative_coins = len([coin for coin, data in market_data.items() if data['change_24h'] < 0])
-            
-            avg_change = sum([data['change_24h'] for data in market_data.values()]) / total_coins
-            avg_volatility = sum([data['volatility'] for data in market_data.values()]) / total_coins
-            
-            # 构建市场情绪分析prompt
+                        print("❌ 全球市场数据格式异常")
+                else:
+                    print(f"❌ 全球市场数据API返回错误: {response.status_code}")
+            except Exception as e:
+                print(f"❌ 获取全球市场数据失败: {e}")
+
+            # 2. 获取热门搜索趋势（用户兴趣指标）
+            try:
+                trending_url = f"{self.coingecko_base_url}/search/trending"
+                headers = {"x_cg_demo_api_key": self.coingecko_api_key}
+                response = requests.get(trending_url, headers=headers, timeout=15)
+
+                if response.status_code == 200:
+                    trending_data = response.json()
+                    if 'coins' in trending_data:
+                        trending_coins = []
+                        for coin in trending_data['coins'][:5]:
+                            item = coin.get('item', {})
+                            trending_coins.append({
+                                'name': item.get('name', '未知'),
+                                'symbol': item.get('symbol', '未知').upper(),
+                                'market_cap_rank': item.get('market_cap_rank', 'N/A'),
+                                'score': item.get('score', 0)
+                            })
+                        sentiment_data['trending_coins'] = trending_coins
+                        print("✅ 获取热门搜索数据成功")
+            except Exception as e:
+                print(f"❌ 获取热门搜索数据失败: {e}")
+
+            # 3. 获取恐贪指数（Alternative.me API）
+            try:
+                fng_url = "https://api.alternative.me/fng/"
+                response = requests.get(fng_url, timeout=10)
+
+                if response.status_code == 200:
+                    fng_data = response.json()
+                    if 'data' in fng_data and len(fng_data['data']) > 0:
+                        latest_fng = fng_data['data'][0]
+                        sentiment_data['fear_greed_index'] = {
+                            'value': int(latest_fng.get('value', 0)),
+                            'classification': latest_fng.get('value_classification', '未知'),
+                            'timestamp': latest_fng.get('timestamp', '未知'),
+                            'time_until_update': latest_fng.get('time_until_update', '未知')
+                        }
+                        print(f"✅ 获取恐贪指数成功: {sentiment_data['fear_greed_index']['value']} ({sentiment_data['fear_greed_index']['classification']})")
+                    else:
+                        print("❌ 恐贪指数数据格式异常")
+                else:
+                    print(f"❌ 恐贪指数API返回错误: {response.status_code}")
+            except Exception as e:
+                print(f"❌ 获取恐贪指数失败: {e}")
+
+            # 4. 获取主流币种表现（作为补充数据）
+            try:
+                major_coins = ['bitcoin', 'ethereum', 'ripple', 'binancecoin', 'cardano', 'solana']
+                market_url = f"{self.coingecko_base_url}/coins/markets"
+                params = {
+                    'vs_currency': 'usd',
+                    'ids': ','.join(major_coins),
+                    'order': 'market_cap_desc',
+                    'per_page': 6,
+                    'page': 1,
+                    'sparkline': 'false',
+                    'price_change_percentage': '24h'
+                }
+                headers = {"x_cg_demo_api_key": self.coingecko_api_key}
+                response = requests.get(market_url, headers=headers, params=params, timeout=15)
+
+                if response.status_code == 200:
+                    coins_data = response.json()
+                    if isinstance(coins_data, list) and len(coins_data) > 0:
+                        major_performance = []
+                        for coin in coins_data:
+                            major_performance.append({
+                                'name': coin.get('name', '未知'),
+                                'symbol': coin.get('symbol', '未知').upper(),
+                                'current_price': coin.get('current_price', 0),
+                                'price_change_24h': coin.get('price_change_percentage_24h', 0),
+                                'market_cap': coin.get('market_cap', 0),
+                                'total_volume': coin.get('total_volume', 0)
+                            })
+                        sentiment_data['major_coins_performance'] = major_performance
+                        print("✅ 获取主流币种表现数据成功")
+                    else:
+                        print("❌ 主流币种数据格式异常")
+                else:
+                    print(f"❌ 主流币种API返回错误: {response.status_code}")
+            except Exception as e:
+                print(f"❌ 获取主流币种表现失败: {e}")
+
+            if not sentiment_data:
+                return "❌ 无法获取任何市场情绪数据"
+
+            # 构建综合市场情绪分析prompt
             prompt = f"""
-你是市场情绪分析专家，请基于以下主流币种的24小时表现数据分析当前市场情绪：
+你是专业的市场情绪分析师，请基于以下多维度数据分析当前加密货币市场情绪：
+
+=== 全球市场数据 ===
+{json.dumps(sentiment_data.get('global_market', {}), indent=2, ensure_ascii=False)}
+
+=== 恐贪指数 ===
+{json.dumps(sentiment_data.get('fear_greed_index', {}), indent=2, ensure_ascii=False)}
+
+=== 热门搜索趋势 ===
+{json.dumps(sentiment_data.get('trending_coins', []), indent=2, ensure_ascii=False)}
 
 === 主流币种表现 ===
-{json.dumps(market_data, indent=2, ensure_ascii=False)}
+{json.dumps(sentiment_data.get('major_coins_performance', []), indent=2, ensure_ascii=False)}
 
-=== 市场统计 ===
-- 上涨币种: {positive_coins}/{total_coins} ({positive_coins/total_coins*100:.1f}%)
-- 下跌币种: {negative_coins}/{total_coins} ({negative_coins/total_coins*100:.1f}%)
-- 平均涨跌幅: {avg_change:+.2f}%
-- 平均波动率: {avg_volatility:.2f}%
+请基于以上数据分析：
+1. 当前市场情绪状态（极度恐慌/恐慌/谨慎/中性/乐观/贪婪/极度贪婪）
+2. 恐贪指数的含义和市场心理状态
+3. BTC/ETH主导地位变化对情绪的影响
+4. 热门搜索趋势反映的投资者兴趣
+5. 全球市值变化和资金流向分析
+6. 短期情绪变化预期和关键转折点
 
-请分析：
-1. 当前市场情绪状态（恐慌/谨慎/中性/乐观/贪婪）
-2. 市场风险偏好水平
-3. 资金流向趋势分析
-4. 情绪指标解读（涨跌币种比例、波动率含义）
-5. 短期情绪变化预期
-
-请给出客观专业的市场情绪评估。
+请提供客观专业的市场情绪评估，重点关注多个指标之间的相互验证。
 """
             return self._call_claude_api(prompt, "市场分析师")
-            
+
         except Exception as e:
             error_msg = f"❌ [市场分析师] 情绪分析失败: {e}"
             print(error_msg)
@@ -494,7 +573,7 @@ class CryptoBot:
         """基本面分析代理"""
         # 获取基本市场数据
         market_data = self.get_market_summary(symbol)
-        
+
         prompt = f"""
 你是基本面分析专家，请基于以下市场数据进行基本面分析：
 
@@ -532,22 +611,22 @@ class CryptoBot:
         print(f"🚀 启动多代理分析架构")
         print(f"📊 分析币种: {symbol}")
         print("="*80)
-        
+
         # 代理1: K线技术分析
         print("📈 [技术分析师] 开始分析...")
         kline_analysis = self.analyze_kline_data(symbol)
         print("\n" + "="*80)
-        
-        # 代理2: 市场情绪分析  
+
+        # 代理2: 市场情绪分析
         print("🔥 [市场分析师] 开始分析...")
         sentiment_analysis = self.analyze_market_sentiment()
         print("\n" + "="*80)
-        
+
         # 代理3: 基本面分析
         print("📊 [基本面分析师] 开始分析...")
         fundamental_analysis = self.analyze_fundamental_data(symbol)
         print("\n" + "="*80)
-        
+
         # 代理4: 综合分析师 - 整合所有分析结果
         print("🎯 [首席分析师] 开始整合分析...")
         integration_prompt = f"""
@@ -567,10 +646,10 @@ class CryptoBot:
 
 请基于以上专业分析，提供综合性的见解和建议。注意平衡各方观点，给出客观专业的结论。
 """
-        
+
         final_analysis = self._call_claude_api(integration_prompt, "首席分析师")
         print("\n" + "="*80)
-        
+
         # 代理5: 交易员 - 做出具体交易决策
         print("💰 [交易员] 制定交易策略...")
         trading_prompt = f"""
@@ -595,9 +674,9 @@ class CryptoBot:
 
 请给出明确的交易计划，不要模糊建议。
 """
-        
+
         trading_decision = self._call_claude_api(trading_prompt, "交易员")
-        
+
         return trading_decision
 
 def main():

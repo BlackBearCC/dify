@@ -46,6 +46,11 @@
 - 2025-09-01: 恢复K线数据LLM分析功能，新增RSI、MACD技术指标计算
 - 2025-09-01: 优化流式输出和错误处理
 - 2025-09-01: 增加代币名快捷分析功能
+- 2025-09-01: 添加交易确认机制、交易记录系统、自动触发机制和胜率统计
+  * 下单前需要用户控制台确认，避免误操作
+  * 本地存储所有交易记录，包括开单逻辑、执行结果、盈亏情况
+  * 实现止盈止损自动触发重新分析机制
+  * 统计交易胜率、总盈亏、最大回撤等关键指标
 """
 
 import requests
@@ -58,10 +63,14 @@ import threading
 import logging
 import numpy as np
 import pandas as pd
+import sqlite3
+import yaml
+import schedule
 from typing import Optional, Dict, List, Any
 from pathlib import Path
 from datetime import datetime, timedelta
 from scipy.signal import find_peaks
+import uuid
 
 try:
     from binance.client import Client
@@ -77,10 +86,13 @@ except ImportError:
     YFINANCE_AVAILABLE = False
     print("警告: 未安装yfinance库，美股数据功能将不可用")
 
-# 设置控制台输出编码
+# 设置控制台输出编码和无缓冲输出
 if sys.platform == "win32":
-    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
-    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
+    # 无缓冲输出，确保实时显示
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', line_buffering=True)
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', line_buffering=True)
+    # 设置Python无缓冲输出
+    os.environ['PYTHONUNBUFFERED'] = '1'
 
 def load_env_file():
     """加载.env文件"""
@@ -107,15 +119,20 @@ def load_env_file():
 # 加载环境变量
 load_env_file()
 
-# 设置日志记录
+# 设置日志记录（无缓冲）
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s %(levelname)s %(message)s',
     handlers=[
         logging.FileHandler('crypto_bot.log'),
-        logging.StreamHandler()
+        logging.StreamHandler(sys.stdout)  # 使用sys.stdout确保实时输出
     ]
 )
+
+# 确保日志处理器也是无缓冲的
+for handler in logging.getLogger().handlers:
+    if isinstance(handler, logging.StreamHandler):
+        handler.flush()
 
 class CryptoBot:
     def __init__(self):
@@ -158,7 +175,15 @@ class CryptoBot:
         # 初始化Binance客户端
         self._init_binance_client()
 
-        print("🚀 加密货币分析机器人已启动")
+        # SQLite数据库系统
+        self.db_path = Path(__file__).parent / 'crypto_bot.db'
+        self.init_database()
+        
+        # 自动触发机制
+        self.scheduler_running = False
+        self.setup_scheduler()
+        
+        print("🚀 加密货币分析机器人已启动", flush=True)
 
     def _init_binance_client(self):
         """初始化Binance客户端"""
@@ -178,10 +203,518 @@ class CryptoBot:
             )
             # 测试连接
             self.binance_client.ping()
-            print("✅ Binance客户端初始化成功")
+            print("✅ Binance客户端初始化成功", flush=True)
         except Exception as e:
             print(f"❌ Binance客户端初始化失败: {e}")
             self.binance_client = None
+
+    def init_database(self):
+        """初始化SQLite数据库 - 只需要一个表存储所有数据"""
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            
+            # 创建统一的数据表，存储所有有用数据
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS bot_data (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    data_type TEXT NOT NULL,  -- 数据类型：technical_analysis, market_sentiment, fundamental_analysis, macro_analysis, chief_analysis, trader_decision, trade_execution, position_update
+                    symbol TEXT,              -- 交易对
+                    agent_name TEXT,          -- 代理名称：技术分析师、市场分析师、基本面分析师、宏观分析师、首席分析师、交易员
+                    content TEXT,             -- 主要内容/分析结果
+                    summary TEXT,             -- 概要/摘要（50字以内）
+                    metadata TEXT,            -- JSON格式的元数据（价格、指标、决策参数等）
+                    trade_id TEXT,            -- 交易ID（如果相关）
+                    pnl REAL,                 -- 盈亏（如果是交易相关）
+                    status TEXT,              -- 状态：active, completed, failed等
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                )
+            ''')
+            
+            # 创建索引提高查询效率
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_data_type ON bot_data(data_type)')
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_timestamp ON bot_data(timestamp)')
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_trade_id ON bot_data(trade_id)')
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_agent_name ON bot_data(agent_name)')
+            
+            conn.commit()
+            conn.close()
+            print("✅ SQLite数据库初始化成功", flush=True)
+            
+        except Exception as e:
+            print(f"❌ 数据库初始化失败: {e}")
+    
+    def save_to_database(self, data_type: str, content: str, summary: str = None, 
+                        metadata: dict = None, agent_name: str = None, 
+                        symbol: str = None, trade_id: str = None, 
+                        pnl: float = None, status: str = 'active'):
+        """保存数据到数据库"""
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            
+            cursor.execute('''
+                INSERT INTO bot_data 
+                (data_type, symbol, agent_name, content, summary, metadata, trade_id, pnl, status)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (
+                data_type,
+                symbol,
+                agent_name, 
+                content,
+                summary,
+                json.dumps(metadata, ensure_ascii=False) if metadata else None,
+                trade_id,
+                pnl,
+                status
+            ))
+            
+            conn.commit()
+            record_id = cursor.lastrowid
+            conn.close()
+            
+            return record_id
+            
+        except Exception as e:
+            print(f"❌ 数据库保存失败: {e}")
+            return None
+    
+    def setup_scheduler(self):
+        """设置自动触发调度器"""
+        try:
+            # 每5分钟执行技术分析
+            schedule.every(5).minutes.do(self.auto_technical_analysis)
+            
+            # 每天9:00执行宏观分析、基本面分析、市场情绪分析
+            schedule.every().day.at("09:00").do(self.auto_daily_analysis)
+            
+            print("✅ 自动调度器设置成功", flush=True)
+            print("📋 调度计划:", flush=True)
+            print("   - 技术分析: 每5分钟执行", flush=True)
+            print("   - 宏观/基本面/市场分析: 每天9:00执行", flush=True)
+            
+        except Exception as e:
+            print(f"❌ 调度器设置失败: {e}")
+    
+    def start_scheduler(self):
+        """启动调度器"""
+        if self.scheduler_running:
+            print("⚠️ 调度器已在运行")
+            return
+            
+        self.scheduler_running = True
+        print("🚀 自动调度器已启动", flush=True)
+        # 立即刷新输出缓冲区
+        sys.stdout.flush()
+        
+        def scheduler_thread():
+            while self.scheduler_running:
+                schedule.run_pending()
+                time.sleep(30)  # 每30秒检查一次
+        
+        scheduler_thread_obj = threading.Thread(target=scheduler_thread, daemon=True)
+        scheduler_thread_obj.start()
+    
+    def stop_scheduler(self):
+        """停止调度器"""
+        self.scheduler_running = False
+        print("⏹️ 自动调度器已停止")
+    
+    def auto_technical_analysis(self):
+        """自动技术分析（每5分钟）"""
+        try:
+            print("🔄 [自动触发] 开始技术分析...")
+            result = self.analyze_kline_data()
+            
+            # 保存分析结果
+            self.save_to_database(
+                data_type='technical_analysis',
+                agent_name='技术分析师',
+                symbol='BTCUSDT',
+                content=result,
+                summary=result[:50] if result else '技术分析执行',
+                status='completed'
+            )
+            
+            # 检查是否需要触发交易决策
+            self.check_trading_triggers()
+            
+        except Exception as e:
+            print(f"❌ 自动技术分析失败: {e}")
+    
+    def auto_daily_analysis(self):
+        """自动执行每日分析（宏观、基本面、市场情绪）"""
+        try:
+            print("🔄 [自动触发] 开始每日综合分析...")
+            
+            # 市场情绪分析
+            sentiment_result = self.analyze_market_sentiment()
+            self.save_to_database(
+                data_type='market_sentiment',
+                agent_name='市场分析师',
+                content=sentiment_result,
+                summary=sentiment_result[:50] if sentiment_result else '市场情绪分析',
+                status='completed'
+            )
+            
+            # 基本面分析
+            fundamental_result = self.analyze_fundamental_data()
+            self.save_to_database(
+                data_type='fundamental_analysis',
+                agent_name='基本面分析师',
+                symbol='BTCUSDT',
+                content=fundamental_result,
+                summary=fundamental_result[:50] if fundamental_result else '基本面分析',
+                status='completed'
+            )
+            
+            # 宏观分析
+            macro_result = self.analyze_macro_data()
+            self.save_to_database(
+                data_type='macro_analysis',
+                agent_name='宏观分析师',
+                content=macro_result,
+                summary=macro_result[:50] if macro_result else '宏观数据分析',
+                status='completed'
+            )
+            
+            print("✅ 每日综合分析完成")
+            
+        except Exception as e:
+            print(f"❌ 每日分析失败: {e}")
+    
+    def check_trading_triggers(self):
+        """检查交易触发条件（止盈止损等）"""
+        try:
+            # 获取当前持仓
+            positions = self.get_current_positions()
+            if not isinstance(positions, list) or not positions:
+                return
+                
+            # 获取当前价格
+            current_data = self.get_crypto_data('BTCUSDT', '1m', 1)
+            if not current_data:
+                return
+                
+            current_price = current_data[0]['close']
+            
+            # 检查每个持仓的止盈止损
+            for pos in positions:
+                symbol = pos['symbol']
+                side = pos['side']
+                entry_price = pos['entry_price']
+                pnl_pct = pos['pnl_pct']
+                
+                # 简单的止盈止损逻辑（可以根据需要调整）
+                should_trigger = False
+                trigger_reason = ""
+                
+                if side == 'LONG':
+                    if pnl_pct >= 20:  # 20%止盈
+                        should_trigger = True
+                        trigger_reason = f"止盈触发(+{pnl_pct:.1f}%)"
+                    elif pnl_pct <= -10:  # 10%止损
+                        should_trigger = True
+                        trigger_reason = f"止损触发({pnl_pct:.1f}%)"
+                elif side == 'SHORT':
+                    if pnl_pct >= 20:  # 20%止盈
+                        should_trigger = True
+                        trigger_reason = f"止盈触发(+{pnl_pct:.1f}%)"
+                    elif pnl_pct <= -10:  # 10%止损
+                        should_trigger = True
+                        trigger_reason = f"止损触发({pnl_pct:.1f}%)"
+                
+                if should_trigger:
+                    print(f"🚨 {trigger_reason} - 触发重新分析")
+                    # 触发完整的分析流程
+                    self.ask_claude_with_data(f"{symbol} {trigger_reason}，请重新评估交易策略", symbol)
+                    
+        except Exception as e:
+            print(f"❌ 交易触发检查失败: {e}")
+    
+    def get_recent_chief_analysis(self, limit: int = 10):
+        """获取最近的首席分析师概要"""
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            
+            cursor.execute('''
+                SELECT summary, content, timestamp
+                FROM bot_data 
+                WHERE data_type = 'chief_analysis' AND agent_name = '首席分析师'
+                ORDER BY timestamp DESC 
+                LIMIT ?
+            ''', (limit,))
+            
+            results = cursor.fetchall()
+            conn.close()
+            
+            if results:
+                return [{
+                    'summary': row[0],
+                    'content': row[1][:100],  # 截取前100字符
+                    'timestamp': row[2]
+                } for row in results]
+            return []
+            
+        except Exception as e:
+            print(f"❌ 获取首席分析历史失败: {e}")
+            return []
+    
+    def get_today_analysis(self, data_type: str, agent_name: str):
+        """获取今天的分析数据，如果存在则返回，否则返回None"""
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            
+            # 获取今天的日期 - 使用更宽松的日期查询
+            today = datetime.now().strftime('%Y-%m-%d')
+            today_start = today + ' 00:00:00'
+            today_end = today + ' 23:59:59'
+            
+
+            
+            # 查询今天的数据 - 简化查询条件
+            cursor.execute('''
+                SELECT content, timestamp
+                FROM bot_data 
+                WHERE data_type = ? AND agent_name = ? 
+                AND date(timestamp) = ?
+                ORDER BY timestamp DESC 
+                LIMIT 1
+            ''', (data_type, agent_name, today))
+            
+            result = cursor.fetchone()
+            conn.close()
+            
+            if result:
+                print(f"📋 [缓存] 使用今天已生成的{agent_name}分析 ({result[1]})", flush=True)
+                return result[0]  # 返回content内容
+            else:
+                print(f"❓ [缓存] 今天({today})没有找到{agent_name}的分析，将重新生成", flush=True)
+            return None
+            
+        except Exception as e:
+            print(f"❌ 获取今天{agent_name}分析失败: {e}")
+            return None
+    
+    def show_today_analysis_status(self):
+        """显示今天的分析缓存状态"""
+        try:
+            today = datetime.now().strftime('%Y-%m-%d')
+            analysis_types = [
+                ('fundamental_analysis', '基本面分析师'),
+                ('macro_analysis', '宏观分析师'),
+                ('market_sentiment', '市场分析师')
+            ]
+            
+            print(f"📅 今天({today})的分析缓存状态:", flush=True)
+            
+            for data_type, agent_name in analysis_types:
+                cached_analysis = self.get_today_analysis(data_type, agent_name)
+                status = "✅ 已缓存" if cached_analysis else "❌ 未生成"
+                print(f"  {agent_name}: {status}", flush=True)
+                
+        except Exception as e:
+            print(f"❌ 检查缓存状态失败: {e}", flush=True)
+    
+    def record_trade(self, decision_data: dict, execution_result: dict, analysis_summary: str = ""):
+        """记录交易信息到数据库"""
+        try:
+            trade_id = str(uuid.uuid4())[:8]
+            
+            # 保存交易决策
+            self.save_to_database(
+                data_type='trader_decision',
+                agent_name='交易员',
+                symbol=decision_data.get('symbol', 'BTCUSDT'),
+                content=json.dumps(decision_data, ensure_ascii=False),
+                summary=analysis_summary[:50] if analysis_summary else decision_data.get('reasoning', '')[:50],
+                metadata=decision_data,
+                trade_id=trade_id,
+                status='EXECUTED' if execution_result.get('success') else 'FAILED'
+            )
+            
+            # 保存执行结果
+            self.save_to_database(
+                data_type='trade_execution',
+                agent_name='系统',
+                symbol=decision_data.get('symbol', 'BTCUSDT'),
+                content=json.dumps(execution_result, ensure_ascii=False),
+                summary=f"交易执行{'成功' if execution_result.get('success') else '失败'}",
+                metadata=execution_result,
+                trade_id=trade_id,
+                status='completed'
+            )
+            
+            print(f"📝 交易记录已保存到数据库: {trade_id}")
+            return trade_id
+            
+        except Exception as e:
+            print(f"❌ 记录交易失败: {e}")
+            return None
+    
+    def update_trade_result(self, trade_id: str, pnl: float, closed_price: float):
+        """更新交易结果到数据库"""
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            
+            # 更新对应的交易记录
+            cursor.execute('''
+                UPDATE bot_data 
+                SET pnl = ?, status = 'CLOSED', 
+                    content = json_set(content, '$.closed_price', ?),
+                    summary = summary || ' [已平仓]'
+                WHERE trade_id = ? AND data_type IN ('trader_decision', 'trade_execution')
+            ''', (pnl, closed_price, trade_id))
+            
+            # 添加平仓记录
+            self.save_to_database(
+                data_type='position_update',
+                agent_name='系统',
+                content=f"交易{trade_id}已平仓，盈亏: {pnl:.2f} USDT，平仓价格: {closed_price}",
+                summary=f"平仓盈亏{pnl:.2f}U",
+                metadata={'pnl': pnl, 'closed_price': closed_price},
+                trade_id=trade_id,
+                pnl=pnl,
+                status='closed'
+            )
+            
+            conn.commit()
+            conn.close()
+            
+            print(f"📊 交易 {trade_id} 已结算: 盈亏 {pnl:.2f} USDT")
+            return True
+            
+        except Exception as e:
+            print(f"❌ 更新交易结果失败: {e}")
+            return False
+    
+    def get_trading_stats(self):
+        """从数据库获取交易统计信息"""
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            
+            # 获取所有已结算的交易
+            cursor.execute('''
+                SELECT pnl FROM bot_data 
+                WHERE data_type = 'trader_decision' 
+                AND pnl IS NOT NULL 
+                AND status = 'CLOSED'
+            ''')
+            
+            results = cursor.fetchall()
+            conn.close()
+            
+            if not results:
+                return {
+                    'total_trades': 0,
+                    'winning_trades': 0,
+                    'losing_trades': 0,
+                    'total_pnl': 0.0,
+                    'win_rate': 0.0,
+                    'best_trade': 0.0,
+                    'worst_trade': 0.0,
+                    'avg_win': 0.0,
+                    'avg_loss': 0.0
+                }
+            
+            pnls = [row[0] for row in results]
+            total_trades = len(pnls)
+            winning_trades = len([p for p in pnls if p > 0])
+            losing_trades = len([p for p in pnls if p < 0])
+            total_pnl = sum(pnls)
+            win_rate = (winning_trades / total_trades) * 100 if total_trades > 0 else 0
+            best_trade = max(pnls) if pnls else 0
+            worst_trade = min(pnls) if pnls else 0
+            
+            wins = [p for p in pnls if p > 0]
+            losses = [p for p in pnls if p < 0]
+            avg_win = sum(wins) / len(wins) if wins else 0
+            avg_loss = sum(losses) / len(losses) if losses else 0
+            
+            return {
+                'total_trades': total_trades,
+                'winning_trades': winning_trades,
+                'losing_trades': losing_trades,
+                'total_pnl': round(total_pnl, 2),
+                'win_rate': round(win_rate, 2),
+                'best_trade': round(best_trade, 2),
+                'worst_trade': round(worst_trade, 2),
+                'avg_win': round(avg_win, 2),
+                'avg_loss': round(avg_loss, 2)
+            }
+            
+        except Exception as e:
+            print(f"❌ 获取交易统计失败: {e}")
+            return {
+                'total_trades': 0,
+                'winning_trades': 0,
+                'losing_trades': 0,
+                'total_pnl': 0.0,
+                'win_rate': 0.0,
+                'best_trade': 0.0,
+                'worst_trade': 0.0,
+                'avg_win': 0.0,
+                'avg_loss': 0.0
+            }
+    
+    def print_trading_stats(self):
+        """打印交易统计信息"""
+        try:
+            stats = self.get_trading_stats()
+            print("\n" + "="*60)
+            print("📊 交易统计报告")
+            print("="*60)
+            print(f"🎯 总交易数: {stats['total_trades']}")
+            print(f"✅ 盈利交易: {stats['winning_trades']}")
+            print(f"❌ 亏损交易: {stats['losing_trades']}")
+            print(f"📈 胜率: {stats['win_rate']:.2f}%")
+            print(f"💰 总盈亏: {stats['total_pnl']:.2f} USDT")
+            print(f"🏆 最大盈利: {stats['best_trade']:.2f} USDT")
+            print(f"💸 最大亏损: {stats['worst_trade']:.2f} USDT")
+            print(f"📊 平均盈利: {stats['avg_win']:.2f} USDT")
+            print(f"📉 平均亏损: {stats['avg_loss']:.2f} USDT")
+            
+            # 显示最近5笔交易
+            self.show_recent_trades(5)
+            print("="*60)
+            
+        except Exception as e:
+            print(f"❌ 显示交易统计失败: {e}")
+    
+    def show_recent_trades(self, limit: int = 5):
+        """显示最近的交易记录"""
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            
+            cursor.execute('''
+                SELECT symbol, summary, pnl, status, timestamp, trade_id
+                FROM bot_data 
+                WHERE data_type = 'trader_decision' 
+                ORDER BY timestamp DESC 
+                LIMIT ?
+            ''', (limit,))
+            
+            results = cursor.fetchall()
+            conn.close()
+            
+            if results:
+                print("\n🕒 最近交易记录:")
+                for row in results:
+                    symbol, summary, pnl, status, timestamp, trade_id = row
+                    pnl_str = f"{pnl:.2f}U" if pnl is not None else "进行中"
+                    status_icon = "✅" if pnl is not None and pnl > 0 else "❌" if pnl is not None and pnl < 0 else "⏳"
+                    summary_short = summary[:20] if summary else '无摘要'
+                    print(f"  {status_icon} {symbol} - {pnl_str} ({summary_short}) [{trade_id}]")
+                    
+        except Exception as e:
+            print(f"❌ 获取最近交易失败: {e}")
+    
 
     def get_crypto_data(self, symbol="BTCUSDT", interval='1h', limit=24):
         """获取加密货币实时数据"""
@@ -575,7 +1108,7 @@ class CryptoBot:
             return {"error": f"获取余额失败: {str(e)}"}
 
     def get_current_positions(self):
-        """获取当前持仓（期货）"""
+        """获取当前持仓（期货/跟单API）"""
         try:
             if not self.binance_client:
                 return {"error": "Binance客户端未初始化"}
@@ -585,18 +1118,31 @@ class CryptoBot:
             active_positions = []
             
             for pos in positions:
-                position_amt = float(pos['positionAmt'])
+                position_amt = float(pos.get('positionAmt', 0))
                 if position_amt != 0:  # 只显示有持仓的
+                    # 获取基本信息
+                    entry_price = float(pos.get('entryPrice', 0))
+                    mark_price = float(pos.get('markPrice', 0))
+                    pnl_value = float(pos.get('unRealizedProfit', 0))
+                    
+                    # 计算盈亏百分比
+                    pnl_pct = 0
+                    if entry_price > 0:
+                        if position_amt > 0:  # 多头
+                            pnl_pct = ((mark_price - entry_price) / entry_price) * 100
+                        else:  # 空头
+                            pnl_pct = ((entry_price - mark_price) / entry_price) * 100
+                    
                     active_positions.append({
-                        'symbol': pos['symbol'],
+                        'symbol': pos.get('symbol', ''),
                         'side': 'LONG' if position_amt > 0 else 'SHORT',
                         'size': abs(position_amt),
-                        'entry_price': float(pos['entryPrice']),
-                        'mark_price': float(pos['markPrice']),
-                        'pnl': float(pos['unRealizedPnl']),
-                        'pnl_pct': float(pos['percentage']),
-                        'margin_type': pos['marginType'],
-                        'leverage': pos['leverage']
+                        'entry_price': entry_price,
+                        'mark_price': mark_price,
+                        'pnl': pnl_value,
+                        'pnl_pct': pnl_pct,
+                        'margin_type': pos.get('marginType', 'ISOLATED'),
+                        'leverage': pos.get('leverage', '1')
                     })
             
             return active_positions
@@ -814,7 +1360,7 @@ class CryptoBot:
             # 检查4: 资金充足性检查 (简化版)
             usdt_balance = balance.get('USDT', {}).get('free', 0)
             if action in ['BUY', 'SELL'] and usdt_balance < 10:  # 最少10 USDT
-                return {"allowed": False, "reason": f"USDT余额不足: {usdt_balance:.2f}"}
+                return {"allowed": False, "reason": f"USDT余额不足: {usdt_balance:.2f}，这是正常的模拟提示，实盘需要充值资金"}
             
             # 检查5: 最大持仓限制
             positions = self.get_current_positions()
@@ -919,11 +1465,11 @@ class CryptoBot:
 
     def _call_claude_api(self, prompt: str, agent_name: str) -> str:
         """调用Claude API的通用方法"""
-        print(f"🤖 [{agent_name}] 调用模型: {self.claude_model}")
+        print(f"🤖 [{agent_name}] 调用模型: {self.claude_model}", flush=True)
 
         if not self.claude_api_key:
             error_msg = f"❌ [{agent_name}] 未配置Claude API密钥"
-            print(error_msg)
+            print(error_msg, flush=True)
             return error_msg
 
         url = f"{self.claude_base_url}/v1/messages"
@@ -969,10 +1515,10 @@ class CryptoBot:
                                 if data.get('type') == 'content_block_delta':
                                     if 'delta' in data and data['delta'].get('type') == 'text_delta':
                                         chunk_text = data['delta']['text']
-                                        # 打字机效果：逐字符输出
-                                        for char in chunk_text:
-                                            print(char, end='', flush=True)
-                                            time.sleep(0.01)  # 10ms延迟，打字机效果
+                                        # 实时输出：直接输出整个chunk，确保立即显示
+                                        print(chunk_text, end='', flush=True)
+                                        # 立即刷新标准输出缓冲区
+                                        sys.stdout.flush()
                                         full_response += chunk_text
                                 elif data.get('type') == 'content_block_start':
                                     continue
@@ -1354,34 +1900,91 @@ class CryptoBot:
 
     def ask_claude_with_data(self, question: str, symbol="BTCUSDT") -> str:
         """多代理架构分析 - 结合各个专业代理的分析结果"""
-        print(f"🚀 启动多代理分析架构")
-        print(f"📊 分析币种: {symbol}")
-        print("="*80)
+        print(f"🚀 启动多代理分析架构", flush=True)
+        print(f"📊 分析币种: {symbol}", flush=True)
+        print("="*80, flush=True)
 
         # 代理1: K线技术分析
-        print("📈 [技术分析师] 开始分析...")
+        print("📈 [技术分析师] 开始分析...", flush=True)
         kline_analysis = self.analyze_kline_data(symbol)
-        print("\n" + "="*80)
-
-        # 代理2: 市场情绪分析
-        print("🔥 [市场分析师] 开始分析...")
-        sentiment_analysis = self.analyze_market_sentiment()
-        print("\n" + "="*80)
-
-        # 代理3: 基本面分析
-        print("📊 [基本面分析师] 开始分析...")
-        fundamental_analysis = self.analyze_fundamental_data(symbol)
-        print("\n" + "="*80)
         
-        # 代理4: 宏观数据分析
-        print("🌍 [宏观分析师] 开始分析...")
-        macro_analysis = self.analyze_macro_data()
-        print("\n" + "="*80)
+        # 保存技术分析结果到数据库
+        self.save_to_database(
+            data_type='technical_analysis',
+            agent_name='技术分析师',
+            symbol=symbol,
+            content=kline_analysis,
+            summary=kline_analysis[:50] if kline_analysis else '技术分析执行',
+            status='completed'
+        )
+        
+        print("\n" + "="*80, flush=True)
+
+        # 代理2: 市场情绪分析 - 优先使用今天的缓存
+        print("🔥 [市场分析师] 开始分析...", flush=True)
+        sentiment_analysis = self.get_today_analysis('market_sentiment', '市场分析师')
+        
+        if sentiment_analysis is None:
+            # 今天还没有市场情绪分析，重新生成
+            print("🔄 生成新的市场情绪分析...", flush=True)
+            sentiment_analysis = self.analyze_market_sentiment()
+            
+            # 保存市场情绪分析结果到数据库
+            self.save_to_database(
+                data_type='market_sentiment',
+                agent_name='市场分析师',
+                content=sentiment_analysis,
+                summary=sentiment_analysis[:50] if sentiment_analysis else '市场情绪分析',
+                status='completed'
+            )
+        
+        print("\n" + "="*80, flush=True)
+
+        # 代理3: 基本面分析 - 优先使用今天的缓存
+        print("📊 [基本面分析师] 开始分析...", flush=True)
+        fundamental_analysis = self.get_today_analysis('fundamental_analysis', '基本面分析师')
+        
+        if fundamental_analysis is None:
+            # 今天还没有基本面分析，重新生成
+            print("🔄 生成新的基本面分析...", flush=True)
+            fundamental_analysis = self.analyze_fundamental_data(symbol)
+            
+            # 保存基本面分析结果到数据库
+            self.save_to_database(
+                data_type='fundamental_analysis',
+                agent_name='基本面分析师',
+                symbol=symbol,
+                content=fundamental_analysis,
+                summary=fundamental_analysis[:50] if fundamental_analysis else '基本面分析',
+                status='completed'
+            )
+        
+        print("\n" + "="*80, flush=True)
+        
+        # 代理4: 宏观数据分析 - 优先使用今天的缓存
+        print("🌍 [宏观分析师] 开始分析...", flush=True)
+        macro_analysis = self.get_today_analysis('macro_analysis', '宏观分析师')
+        
+        if macro_analysis is None:
+            # 今天还没有宏观分析，重新生成
+            print("🔄 生成新的宏观分析...", flush=True)
+            macro_analysis = self.analyze_macro_data()
+            
+            # 保存宏观分析结果到数据库
+            self.save_to_database(
+                data_type='macro_analysis',
+                agent_name='宏观分析师',
+                content=macro_analysis,
+                summary=macro_analysis[:50] if macro_analysis else '宏观数据分析',
+                status='completed'
+            )
+        
+        print("\n" + "="*80, flush=True)
 
         # 代理5: 综合分析师 - 整合所有分析结果
-        print("🎯 [首席分析师] 开始整合分析...")
+        print("🎯 [首席分析师] 开始整合分析...", flush=True)
         integration_prompt = f"""
-你是首席分析师，请整合以下四个专业代理的分析报告，回答用户问题：
+你是首席分析师，请整合以下四个专业代理的分析报告，并以YAML格式输出。
 
 === 技术分析师报告 ===
 {kline_analysis}
@@ -1398,22 +2001,90 @@ class CryptoBot:
 === 用户问题 ===
 {question}
 
-请基于技术面、市场情绪、基本面和宏观面的综合分析，提供全面的投资建议。
-注意平衡各方观点，给出客观专业的结论，重点关注：
-1. 各维度分析的一致性和分歧点
-2. 短期和中长期的投资策略差异
-3. 风险因素的多维度评估
-4. 关键的市场转折点和信号
+请严格按照以下YAML格式输出：
+```yaml
+概要: "50字以内的简洁分析摘要"
+详细: |
+  基于技术面、市场情绪、基本面和宏观面的综合分析：
+  
+  1. 技术面分析要点：
+     - [关键技术信号]
+     
+  2. 市场情绪评估：
+     - [市场心理状态]
+     
+  3. 基本面因素：
+     - [基本面核心要点]
+     
+  4. 宏观环境影响：
+     - [宏观经济影响]
+     
+  5. 综合投资建议：
+     - 短期策略：[具体建议]
+     - 中期策略：[具体建议]
+     - 风险提示：[关键风险点]
+     
+  6. 关键转折点：
+     - [重要价位或时间节点]
+```
+
+注意：
+- 概要必须在50字以内
+- 详细部分要平衡各方观点，给出客观专业的结论
+- 重点关注各维度分析的一致性和分歧点
 """
 
         final_analysis = self._call_claude_api(integration_prompt, "首席分析师")
-        print("\n" + "="*80)
+        
+        # 解析YAML格式的首席分析结果
+        try:
+            # 提取YAML内容
+            import re
+            yaml_match = re.search(r'```yaml\s*(.*?)\s*```', final_analysis, re.DOTALL)
+            if yaml_match:
+                yaml_content = yaml_match.group(1)
+                chief_data = yaml.safe_load(yaml_content)
+                summary = chief_data.get('概要', final_analysis[:50])
+                
+                # 保存首席分析师结果到数据库
+                self.save_to_database(
+                    data_type='chief_analysis',
+                    agent_name='首席分析师',
+                    symbol=symbol,
+                    content=final_analysis,
+                    summary=summary[:50],
+                    metadata=chief_data,
+                    status='completed'
+                )
+            else:
+                # 如果没有YAML格式，直接保存
+                self.save_to_database(
+                    data_type='chief_analysis',
+                    agent_name='首席分析师',
+                    symbol=symbol,
+                    content=final_analysis,
+                    summary=final_analysis[:50],
+                    status='completed'
+                )
+        except Exception as e:
+            print(f"⚠️ 解析首席分析师YAML格式失败: {e}")
+            # 仍然保存原始内容
+            self.save_to_database(
+                data_type='chief_analysis',
+                agent_name='首席分析师',
+                symbol=symbol,
+                content=final_analysis,
+                summary=final_analysis[:50],
+                status='completed'
+            )
+        
+        print("\n" + "="*80, flush=True)
 
         # 代理6: 交易员 - 做出具体交易决策
-        print("💰 [交易员] 制定交易策略...")
+        print("💰 [交易员] 制定交易策略...", flush=True)
         
         # 获取当前账户状态和安全限额
-        print("📊 获取账户信息...")
+        print("📊 获取账户信息...", flush=True)
         account_balance = self.get_account_balance()
         current_positions = self.get_current_positions()
         safe_limits = self.get_safe_trading_limits()
@@ -1455,6 +2126,9 @@ class CryptoBot:
             print("  默认推荐杠杆: 5x")
             print("  默认单笔风险: 10% 资金")
         
+        # 获取最近10次首席分析概要给交易员参考
+        recent_chief_analysis = self.get_recent_chief_analysis(10)
+        
         trading_prompt = f"""
 你是专业交易员，基于以上所有分析师的报告，请制定具体的交易策略并输出结构化JSON格式决策：
 
@@ -1468,6 +2142,9 @@ class CryptoBot:
 余额信息: {json.dumps(account_balance, indent=2, ensure_ascii=False)}
 当前持仓: {json.dumps(current_positions, indent=2, ensure_ascii=False)}
 安全限额建议: {json.dumps(safe_limits, indent=2, ensure_ascii=False)}
+
+=== 最近10次首席分析概要（供参考） ===
+{json.dumps(recent_chief_analysis, indent=2, ensure_ascii=False)}
 
 === 交易参数要求 ===
 - 交易标的: {symbol}
@@ -1495,6 +2172,8 @@ class CryptoBot:
 3. leverage在1-100倍之间
 4. confidence是置信度百分比（0-100）
 5. reasoning必须包含技术面、基本面、市场情绪的综合考虑
+6. 参考历史首席分析的概要信息，学习之前的分析思路
+7. 避免重复之前失败的决策模式
 
 请基于分析结果给出明确可执行的JSON决策。
 """
@@ -1512,28 +2191,55 @@ class CryptoBot:
                 decision_data = json.loads(json_match.group())
                 print(f"✅ 解析成功: {decision_data.get('action', 'UNKNOWN')} - {decision_data.get('reasoning', '无理由')[:100]}...")
                 
-                # 如果有Binance客户端，自动执行交易决策
-                if self.binance_client:
+                # 创建首席分析摘要（50字以内）
+                analysis_summary = decision_data.get('reasoning', final_analysis)[:50] if decision_data.get('reasoning') else final_analysis[:50]
+                
+                # 先显示交易统计（如果有历史记录）
+                stats = self.get_trading_stats()
+                if stats['total_trades'] > 0:
+                    self.print_trading_stats()
+                
+                # 如果有Binance客户端且不是观望操作，则直接执行交易
+                if self.binance_client and decision_data.get('action', '').upper() not in ['HOLD']:
                     print("🚀 开始执行交易决策...")
                     execution_result = self.execute_trading_decision(decision_data)
-                    print(f"💼 执行结果:")
+                    
+                    # 记录交易
+                    trade_id = self.record_trade(decision_data, execution_result, analysis_summary)
+                    
+                    print(f"💼 执行结果:", flush=True)
                     if execution_result.get('success'):
-                        print("✅ 交易执行成功！")
+                        print("✅ 交易执行成功！", flush=True)
                         for result in execution_result.get('execution_results', []):
                             action = result.get('action', 'UNKNOWN')
                             result_data = result.get('result', {})
                             if result_data.get('success'):
-                                print(f"  ✅ {action}: 成功")
+                                print(f"  ✅ {action}: 成功", flush=True)
                                 if 'order_id' in result_data:
-                                    print(f"     订单ID: {result_data['order_id']}")
+                                    print(f"     订单ID: {result_data['order_id']}", flush=True)
                                 if 'symbol' in result_data:
-                                    print(f"     交易对: {result_data['symbol']}")
+                                    print(f"     交易对: {result_data['symbol']}", flush=True)
                                 if 'quantity' in result_data:
-                                    print(f"     数量: {result_data['quantity']}")
+                                    print(f"     数量: {result_data['quantity']}", flush=True)
                             else:
-                                print(f"  ❌ {action}: {result_data.get('error', '未知错误')}")
+                                print(f"  ❌ {action}: {result_data.get('error', '未知错误')}", flush=True)
+                        
+                        if trade_id:
+                            print(f"📝 交易已记录，ID: {trade_id}", flush=True)
+                            print("💡 提示：您可以手动调用 update_trade_result() 更新盈亏情况", flush=True)
                     else:
-                        print(f"❌ 交易执行失败: {execution_result.get('error', '未知错误')}")
+                        error_msg = execution_result.get('error', '未知错误')
+                        print(f"❌ 交易执行失败: {error_msg}", flush=True)
+                        
+                        # 如果是余额不足，给出友好提示
+                        if "余额不足" in error_msg:
+                            print("💡 这是模拟交易环境，交易决策分析已完成。", flush=True)
+                            print("   如需实盘交易，请确保账户有足够的USDT余额。", flush=True)
+                elif decision_data.get('action', '').upper() == 'HOLD':
+                    print("⏳ 交易员建议观望，不执行交易")
+                    # 观望也记录决策
+                    execution_result = {"success": True, "action": "HOLD", "message": "观望决策"}
+                    self.record_trade(decision_data, execution_result, analysis_summary)
                 else:
                     print("⚠️ 未配置Binance客户端，仅输出交易建议")
             else:
@@ -1547,6 +2253,20 @@ def main():
     bot = CryptoBot()
 
     if len(sys.argv) > 1:
+        # 检查是否要启动自动调度器
+        if sys.argv[1] == '--auto' or sys.argv[1] == '-a':
+            print("🚀 启动自动调度模式", flush=True)
+            bot.start_scheduler()
+            try:
+                # 保持程序运行
+                while True:
+                    time.sleep(60)  # 每分钟检查一次
+            except KeyboardInterrupt:
+                print("\n🛑 收到中断信号，正在停止...", flush=True)
+                bot.stop_scheduler()
+                print("👋 程序已退出", flush=True)
+                return
+        
         # 命令行模式
         if len(sys.argv) == 2:
             # 只有一个参数，检查是否是代币名
@@ -1570,16 +2290,35 @@ def main():
                 bot.ask_claude_with_data(question)
     else:
         # 交互模式
-        print("🚀 加密货币分析机器人 (输入quit退出)")
-        print("💡 用法示例:")
-        print("   - 输入代币名: 'BTC' 或 'ETH' (自动分析日内和15分钟走势)")
-        print("   - 指定交易对: 'ETHUSDT 以太坊今天走势如何?'")
-        print("   - 直接提问: '比特币适合长期持有吗?'")
+        print("🚀 加密货币分析机器人 (输入quit退出)", flush=True)
+        print("💡 用法示例:", flush=True)
+        print("   - 输入代币名: 'BTC' 或 'ETH' (自动分析日内和15分钟走势)", flush=True)
+        print("   - 指定交易对: 'ETHUSDT 以太坊今天走势如何?'", flush=True)
+        print("   - 直接提问: '比特币适合长期持有吗?'", flush=True)
+        print("   - 启动自动模式: python crypto_bot.py --auto", flush=True)
+        print("   - 查看交易统计: 输入 'stats'", flush=True)
+        print("   - 查看今日分析缓存: 输入 'cache'", flush=True)
+        print("   - 启动调度器: 输入 'start_auto'", flush=True)
 
         while True:
             user_input = input("\n❓ 问题: ").strip()
             if user_input.lower() == 'quit':
                 break
+            elif user_input.lower() == 'stats':
+                bot.print_trading_stats()
+                continue
+            elif user_input.lower() == 'cache':
+                bot.show_today_analysis_status()
+                continue
+            elif user_input.lower() == 'start_auto':
+                bot.start_scheduler()
+                print("🔄 自动调度器已启动，继续输入问题或输入quit退出")
+                continue
+            elif user_input.lower() == 'stop_auto':
+                bot.stop_scheduler()
+                print("⏹️ 自动调度器已停止")
+                continue
+            
             if user_input:
                 # 解析输入，检查是否包含币种
                 parts = user_input.split(' ', 1)

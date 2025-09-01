@@ -1,6 +1,18 @@
 # -*- coding: utf-8 -*-
 """
 加密货币分析机器人 - 结合Binance数据和Claude AI分析
+
+更新日志:
+- 2025-09-01: 修复LLM调用问题，优化流式输出处理和错误处理机制
+- 2025-09-01: 实现多代理架构分析系统，包含4个专业代理：
+  * 技术分析师：K线数据+技术指标分析(RSI、MACD、均线)
+  * 市场分析师：热门币种数据+市场情绪分析
+  * 基本面分析师：市场数据+基本面分析
+  * 首席分析师：整合所有代理报告，提供综合建议
+- 2025-09-01: 恢复K线数据LLM分析功能，新增RSI、MACD技术指标计算
+- 2025-09-01: 添加CoinGecko热门币种数据获取
+- 2025-09-01: 优化流式输出和错误处理
+- 2025-09-01: 增加代币名快捷分析功能
 """
 
 import requests
@@ -9,8 +21,29 @@ import sys
 import io
 import os
 import time
-from typing import Optional
+import threading
+import logging
+import numpy as np
+import pandas as pd
+from typing import Optional, Dict, List, Any
 from pathlib import Path
+from datetime import datetime, timedelta
+from scipy.signal import find_peaks
+
+try:
+    from binance.client import Client
+    BINANCE_AVAILABLE = True
+except ImportError:
+    BINANCE_AVAILABLE = False
+    print("⚠️ 未安装python-binance库，交易功能将不可用")
+
+try:
+    import tensorflow as tf
+    from sklearn.preprocessing import MinMaxScaler
+    ML_AVAILABLE = True
+except ImportError:
+    ML_AVAILABLE = False
+    print("⚠️ 未安装机器学习库，预测功能将不可用")
 
 # 设置控制台输出编码
 if sys.platform == "win32":
@@ -42,13 +75,60 @@ def load_env_file():
 # 加载环境变量
 load_env_file()
 
+# 设置日志记录
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s %(levelname)s %(message)s',
+    handlers=[
+        logging.FileHandler('crypto_bot.log'),
+        logging.StreamHandler()
+    ]
+)
+
 class CryptoBot:
     def __init__(self):
         # Claude API配置
         self.claude_api_key = os.getenv('CLAUDE_API_KEY')
         self.claude_base_url = os.getenv('CLAUDE_BASE_URL', 'https://clubcdn.383338.xyz')
         self.claude_model = os.getenv('CLAUDE_MODEL', 'claude-sonnet-4-20250514')
+        
+        # CoinGecko API配置
+        self.coingecko_api_key = "CG-SJ8bSJ7VmR2KH16w3UtgcYPa"
+        self.coingecko_base_url = "https://api.coingecko.com/api/v3"
+        
+        # Binance API配置
+        self.binance_api_key = os.getenv('BINANCE_API_KEY')
+        self.binance_api_secret = os.getenv('BINANCE_API_SECRET')
+        self.binance_testnet = os.getenv('BINANCE_TESTNET', 'true').lower() == 'true'
+        self.binance_client = None
+        
+        # 初始化Binance客户端
+        self._init_binance_client()
+        
         print("🚀 加密货币分析机器人已启动")
+
+    def _init_binance_client(self):
+        """初始化Binance客户端"""
+        if not BINANCE_AVAILABLE:
+            print("⚠️ Binance功能不可用：请安装python-binance库")
+            return
+        
+        if not self.binance_api_key or not self.binance_api_secret:
+            print("⚠️ Binance功能不可用：未配置API密钥")
+            return
+            
+        try:
+            self.binance_client = Client(
+                self.binance_api_key,
+                self.binance_api_secret,
+                testnet=self.binance_testnet
+            )
+            # 测试连接
+            self.binance_client.ping()
+            print("✅ Binance客户端初始化成功")
+        except Exception as e:
+            print(f"❌ Binance客户端初始化失败: {e}")
+            self.binance_client = None
 
     def get_crypto_data(self, symbol="BTCUSDT", interval='1h', limit=24):
         """获取加密货币实时数据"""
@@ -125,29 +205,63 @@ class CryptoBot:
         print(summary)
         return summary
 
-    def ask_claude_with_data(self, question: str, symbol="BTCUSDT") -> str:
-        """结合市场数据询问Claude"""
-        # 获取市场数据
-        market_data = self.get_market_summary(symbol)
+    def get_trending_coins(self):
+        """获取热门币种信息"""
+        try:
+            # CoinGecko API v3 热门币种端点
+            url = f"{self.coingecko_base_url}/search/trending"
+            headers = {
+                "x_cg_demo_api_key": self.coingecko_api_key
+            }
+            
+            response = requests.get(url, headers=headers, timeout=15)
+            
+            if response.status_code == 200:
+                trending_data = response.json()
+                print(f"✅ 成功获取热门币种数据")
+                
+                trending_summary = "🔥 热门币种:\n"
+                
+                # 热门搜索币种
+                if 'coins' in trending_data:
+                    trending_summary += "\n📈 热门搜索:\n"
+                    for i, coin in enumerate(trending_data['coins'][:5], 1):
+                        item = coin.get('item', {})
+                        name = item.get('name', '未知')
+                        symbol = item.get('symbol', '未知')
+                        rank = item.get('market_cap_rank', 'N/A')
+                        trending_summary += f"{i}. {name} ({symbol.upper()}) - 市值排名: {rank}\n"
+                
+                # 热门NFT
+                if 'nfts' in trending_data and trending_data['nfts']:
+                    trending_summary += "\n🎨 热门NFT:\n"
+                    for i, nft in enumerate(trending_data['nfts'][:3], 1):
+                        name = nft.get('name', '未知')
+                        trending_summary += f"{i}. {name}\n"
+                
+                print(trending_summary)
+                return trending_summary
+            else:
+                print(f"❌ 热门币种API返回错误: {response.status_code}")
+                return ""
+                
+        except Exception as e:
+            print(f"❌ 获取热门币种失败: {e}")
+            return ""
 
-        # 构建包含数据的prompt
-        enhanced_question = f"""
-作为加密货币分析专家，请基于以下最新市场数据回答问题：
-
-{market_data}
-
-用户问题: {question}
-
-请提供专业的分析和见解。
-"""
-
-        print(f"🤖 调用模型: {self.claude_model}")
-        print(f"📊 分析币种: {symbol}")
-
+    def _call_claude_api(self, prompt: str, agent_name: str) -> str:
+        """调用Claude API的通用方法"""
+        print(f"🤖 [{agent_name}] 调用模型: {self.claude_model}")
+        
+        if not self.claude_api_key:
+            error_msg = f"❌ [{agent_name}] 未配置Claude API密钥"
+            print(error_msg)
+            return error_msg
+        
         url = f"{self.claude_base_url}/v1/messages"
         payload = {
             "model": self.claude_model,
-            "messages": [{"role": "user", "content": enhanced_question}],
+            "messages": [{"role": "user", "content": prompt}],
             "max_tokens": 1000,
             "stream": True
         }
@@ -157,37 +271,261 @@ class CryptoBot:
             "Content-Type": "application/json"
         }
 
-        response = requests.post(url, json=payload, headers=headers, timeout=60, stream=True)
+        try:
+            response = requests.post(url, json=payload, headers=headers, timeout=60, stream=True)
+            
+            if response.status_code != 200:
+                error_msg = f"❌ [{agent_name}] API请求失败: {response.status_code} - {response.text}"
+                print(error_msg)
+                return error_msg
 
-        full_response = ""
-        buffer = ""
+            full_response = ""
+            buffer = ""
 
-        for chunk in response:
-            if chunk:
-                buffer += chunk.decode('utf-8', errors='ignore')
+            for chunk in response:
+                if chunk:
+                    buffer += chunk.decode('utf-8', errors='ignore')
+                    
+                    # 处理完整的行
+                    while '\n' in buffer:
+                        line, buffer = buffer.split('\n', 1)
+                        line = line.strip()
+                        
+                        if line.startswith('data: '):
+                            data_text = line[6:]
+                            if data_text.strip() == '[DONE]':
+                                break
 
-                # 处理完整的行
-                while '\n' in buffer:
-                    line, buffer = buffer.split('\n', 1)
-                    line = line.strip()
+                            try:
+                                data = json.loads(data_text)
+                                if data.get('type') == 'content_block_delta':
+                                    if 'delta' in data and data['delta'].get('type') == 'text_delta':
+                                        chunk_text = data['delta']['text']
+                                        print(chunk_text, end='', flush=True)
+                                        full_response += chunk_text
+                                elif data.get('type') == 'content_block_start':
+                                    continue
+                                elif data.get('type') == 'message_start':
+                                    continue
+                            except json.JSONDecodeError:
+                                continue
+                            except Exception as e:
+                                print(f"⚠️ [{agent_name}] 处理数据错误: {e}")
+                                continue
 
-                    if line.startswith('data: '):
-                        data_text = line[6:]
-                        if data_text.strip() == '[DONE]':
-                            break
+            print()  # 换行
+            
+            if not full_response.strip():
+                error_msg = f"❌ [{agent_name}] 未收到有效响应内容"
+                print(error_msg)
+                return error_msg
+                
+            return full_response.strip()
+            
+        except requests.exceptions.Timeout:
+            error_msg = f"❌ [{agent_name}] 请求超时"
+            print(error_msg)
+            return error_msg
+        except requests.exceptions.RequestException as e:
+            error_msg = f"❌ [{agent_name}] 网络请求错误: {e}"
+            print(error_msg)
+            return error_msg
+        except Exception as e:
+            error_msg = f"❌ [{agent_name}] 未知错误: {e}"
+            print(error_msg)
+            return error_msg
 
-                        try:
-                            data = json.loads(data_text)
-                            if data.get('type') == 'content_block_delta':
-                                if 'delta' in data and data['delta'].get('type') == 'text_delta':
-                                    chunk_text = data['delta']['text']
-                                    print(chunk_text, end='', flush=True)
-                                    full_response += chunk_text
-                        except json.JSONDecodeError:
-                            continue
+    def analyze_kline_data(self, symbol="BTCUSDT", interval='15m', limit=100) -> str:
+        """K线数据技术分析代理"""
+        # 获取K线数据
+        kline_data = self.get_crypto_data(symbol, interval, limit)
+        if not kline_data:
+            error_msg = f"❌ [技术分析师] 无法获取{symbol}的K线数据"
+            print(error_msg)
+            return error_msg
+        
+        try:
+            # 准备技术分析数据
+            df = pd.DataFrame(kline_data)
+            
+            # 确保有足够的数据进行计算
+            if len(df) < 50:
+                limit = 100  # 增加数据量
+                kline_data = self.get_crypto_data(symbol, interval, limit)
+                df = pd.DataFrame(kline_data)
+            
+            # 计算技术指标
+            df['sma_20'] = df['close'].rolling(window=20).mean()
+            df['sma_50'] = df['close'].rolling(window=50).mean()
+            df['rsi'] = self._calculate_rsi(df['close'])
+            df['macd'], df['macd_signal'] = self._calculate_macd(df['close'])
+            
+            # 获取最近10个有效数据点
+            recent_data = df.dropna().tail(10)
+            if recent_data.empty:
+                error_msg = f"❌ [技术分析师] 计算技术指标失败，数据不足"
+                print(error_msg)
+                return error_msg
+                
+            # 转换为字典格式，处理NaN值
+            recent_dict = []
+            for _, row in recent_data.iterrows():
+                row_dict = {}
+                for col in row.index:
+                    value = row[col]
+                    if pd.isna(value):
+                        row_dict[col] = None
+                    elif isinstance(value, (int, float)):
+                        row_dict[col] = round(float(value), 4)
+                    else:
+                        row_dict[col] = value
+                recent_dict.append(row_dict)
+            
+            # 构建技术分析prompt
+            prompt = f"""
+你是专业的技术分析师，请分析{symbol}的{interval}K线数据：
 
-        print()
-        return full_response
+最近10个周期的技术指标数据：
+时间戳(time)、开盘价(open)、最高价(high)、最低价(low)、收盘价(close)、成交量(volume)
+20期简单移动平均线(sma_20)、50期简单移动平均线(sma_50)
+相对强弱指数RSI(rsi)、MACD线(macd)、MACD信号线(macd_signal)
+
+{json.dumps(recent_dict, indent=2, ensure_ascii=False)}
+
+请提供：
+1. 趋势分析（短期、中期）
+2. 支撑阻力位识别
+3. 技术指标解读（RSI、MACD、均线）
+4. 交易建议（入场点位、止损止盈）
+
+请保持简洁专业，重点关注15分钟级别的短期走势。
+"""
+            return self._call_claude_api(prompt, "技术分析师")
+            
+        except Exception as e:
+            error_msg = f"❌ [技术分析师] 数据处理错误: {e}"
+            print(error_msg)
+            return error_msg
+
+    def analyze_market_sentiment(self) -> str:
+        """市场情绪分析代理"""
+        # 获取热门币种数据
+        trending_data = self.get_trending_coins()
+        
+        prompt = f"""
+你是市场情绪分析专家，请基于以下热门币种数据分析当前市场情绪：
+
+{trending_data}
+
+请分析：
+1. 市场热点方向
+2. 投资者情绪状态
+3. 潜在的市场机会和风险
+4. 短期市场预期
+
+保持客观专业，避免投资建议。
+"""
+        return self._call_claude_api(prompt, "市场分析师")
+
+    def analyze_fundamental_data(self, symbol="BTCUSDT") -> str:
+        """基本面分析代理"""
+        # 获取基本市场数据
+        market_data = self.get_market_summary(symbol)
+        
+        prompt = f"""
+你是基本面分析专家，请基于以下市场数据进行基本面分析：
+
+{market_data}
+
+请分析：
+1. 价格走势的基本面逻辑
+2. 交易量变化的意义
+3. 市值排名变化趋势
+4. 长期投资价值评估
+
+保持理性客观的分析视角。
+"""
+        return self._call_claude_api(prompt, "基本面分析师")
+
+    def _calculate_rsi(self, prices, period=14):
+        """计算RSI指标"""
+        delta = prices.diff()
+        gain = (delta.where(delta > 0, 0)).rolling(window=period).mean()
+        loss = (-delta.where(delta < 0, 0)).rolling(window=period).mean()
+        rs = gain / loss
+        rsi = 100 - (100 / (1 + rs))
+        return rsi
+
+    def _calculate_macd(self, prices, fast=12, slow=26, signal=9):
+        """计算MACD指标"""
+        exp1 = prices.ewm(span=fast).mean()
+        exp2 = prices.ewm(span=slow).mean()
+        macd = exp1 - exp2
+        macd_signal = macd.ewm(span=signal).mean()
+        return macd, macd_signal
+
+    def ask_claude_with_data(self, question: str, symbol="BTCUSDT") -> str:
+        """多代理架构分析 - 结合各个专业代理的分析结果"""
+        print(f"🚀 启动多代理分析架构")
+        print(f"📊 分析币种: {symbol}")
+        print("="*80)
+        
+        # 代理1: K线技术分析
+        print("📈 [代理1] K线技术分析中...")
+        kline_analysis = self.analyze_kline_data(symbol)
+        print("\n" + "="*80)
+        print("📈 [技术分析师] 完整分析报告：")
+        print("-" * 60)
+        print(kline_analysis)
+        print("="*80)
+        
+        # 代理2: 市场情绪分析  
+        print("🔥 [代理2] 市场情绪分析中...")
+        sentiment_analysis = self.analyze_market_sentiment()
+        print("\n" + "="*80)
+        print("🔥 [市场分析师] 完整分析报告：")
+        print("-" * 60)
+        print(sentiment_analysis)
+        print("="*80)
+        
+        # 代理3: 基本面分析
+        print("📊 [代理3] 基本面分析中...")
+        fundamental_analysis = self.analyze_fundamental_data(symbol)
+        print("\n" + "="*80)
+        print("📊 [基本面分析师] 完整分析报告：")
+        print("-" * 60)
+        print(fundamental_analysis)
+        print("="*80)
+        
+        # 代理4: 综合分析师 - 整合所有分析结果
+        print("🎯 [总分析师] 整合分析中...")
+        integration_prompt = f"""
+你是首席分析师，请整合以下三个专业代理的分析报告，回答用户问题：
+
+=== 技术分析师报告 ===
+{kline_analysis}
+
+=== 市场分析师报告 ===
+{sentiment_analysis}
+
+=== 基本面分析师报告 ===
+{fundamental_analysis}
+
+=== 用户问题 ===
+{question}
+
+请基于以上专业分析，提供综合性的见解和建议。注意平衡各方观点，给出客观专业的结论。
+"""
+        
+        final_analysis = self._call_claude_api(integration_prompt, "首席分析师")
+        
+        print("\n" + "="*80)
+        print("🎯 [首席分析师] 综合分析报告：")
+        print("-" * 60)
+        print(final_analysis)
+        print("="*80)
+        
+        return final_analysis
 
 def main():
     bot = CryptoBot()

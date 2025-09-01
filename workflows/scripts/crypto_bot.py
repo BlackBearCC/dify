@@ -3,6 +3,28 @@
 加密货币分析机器人 - 结合Binance数据和Claude AI分析
 
 更新日志:
+- 2025-09-01: 修复KeyError和API错误，创建单元测试文件
+  * 修复get_safe_trading_limits方法中account_balance键缺失的KeyError
+  * 在API失败时返回完整的默认安全限额字典
+  * 增强错误处理，防止Binance API签名和权限错误导致程序崩溃
+  * 创建comprehensive单元测试文件test_crypto_bot.py，覆盖交易、数据源、风险管理
+  * 添加BINANCE_API_SETUP.md配置指南解决API权限问题
+- 2025-09-01: 启用自动交易执行功能，完善交易员执行反馈
+  * 修改交易员代理为自动执行模式，不再需要手动确认
+  * 详细打印账户信息：余额、持仓、安全限额供用户查看
+  * 增强执行结果反馈，显示订单详情和执行状态
+  * 支持多步骤交易执行（主单+止损+止盈）的状态监控
+- 2025-09-01: 完善交易员代理prompt，集成交易工具描述和账户状态信息
+  * 交易员prompt现在包含可用交易工具的完整描述
+  * 获取并显示当前账户余额、持仓状态和安全交易限额
+  * 修复交易员代理未调用LLM生成决策的bug  
+  * 添加JSON决策解析和执行准备功能，支持自动交易执行
+- 2025-09-01: 集成Binance实盘交易功能，交易员可执行真实下单操作
+  * 添加完整Binance期货交易接口(下单、平仓、设置杠杆、查询余额/持仓)
+  * 交易员输出结构化JSON格式决策，支持自动解析和执行
+  * 实现6层风险控制检查(杠杆限制、资金检查、持仓限制、止损合理性等)
+  * 支持市价单、止损单、止盈单的自动设置
+  * 实盘交易决策包含: 操作类型、数量、杠杆、止损止盈、风险等级、置信度
 - 2025-09-01: 替换CoinGlass为完全免费的ETF数据源，去除所有收费API和模拟数据
   * 使用Yahoo Finance(yfinance)获取10个主要比特币ETF实时数据
   * 基于价格、成交量、市值变化计算专业级资金流向估算
@@ -11,7 +33,7 @@
 - 2025-09-01: 新增宏观数据分析代理，集成ETF流向、美股指数、黄金价格宏观分析
   * 集成比特币ETF资金流向数据(免费Yahoo Finance数据源)
   * 添加美股三大指数数据获取(S&P500/NASDAQ/道琼斯，使用yfinance)
-  * 集成黄金价格数据多源获取，提供避险资产对比分析
+  * 优化黄金价格获取，通过GLD黄金ETF获取更可靠的实时金价
   * 扩展为6代理架构：技术+市场情绪+基本面+宏观+首席+交易员
 - 2025-09-01: 重构市场情绪分析，使用CoinGecko全球市场数据和恐贪指数替代NFT数据
   * 集成Alternative.me恐贪指数API，直接获取市场心理状态指标
@@ -46,22 +68,14 @@ try:
     BINANCE_AVAILABLE = True
 except ImportError:
     BINANCE_AVAILABLE = False
-    print("⚠️ 未安装python-binance库，交易功能将不可用")
-
-try:
-    import tensorflow as tf
-    from sklearn.preprocessing import MinMaxScaler
-    ML_AVAILABLE = True
-except ImportError:
-    ML_AVAILABLE = False
-    print("⚠️ 未安装机器学习库，预测功能将不可用")
+    print("警告: 未安装python-binance库，交易功能将不可用")
 
 try:
     import yfinance as yf
     YFINANCE_AVAILABLE = True
 except ImportError:
     YFINANCE_AVAILABLE = False
-    print("⚠️ 未安装yfinance库，美股数据功能将不可用")
+    print("警告: 未安装yfinance库，美股数据功能将不可用")
 
 # 设置控制台输出编码
 if sys.platform == "win32":
@@ -532,6 +546,376 @@ class CryptoBot:
                 'timestamp': int(time.time()),
                 'error': str(e)
             }
+
+    def get_account_balance(self):
+        """获取账户余额"""
+        try:
+            if not self.binance_client:
+                return {"error": "Binance客户端未初始化"}
+            
+            account = self.binance_client.get_account()
+            balances = {}
+            
+            for balance in account['balances']:
+                asset = balance['asset']
+                free = float(balance['free'])
+                locked = float(balance['locked'])
+                total = free + locked
+                
+                if total > 0:  # 只显示有余额的币种
+                    balances[asset] = {
+                        'free': free,
+                        'locked': locked,
+                        'total': total
+                    }
+            
+            return balances
+            
+        except Exception as e:
+            return {"error": f"获取余额失败: {str(e)}"}
+
+    def get_current_positions(self):
+        """获取当前持仓（期货）"""
+        try:
+            if not self.binance_client:
+                return {"error": "Binance客户端未初始化"}
+            
+            # 获取期货持仓
+            positions = self.binance_client.futures_position_information()
+            active_positions = []
+            
+            for pos in positions:
+                position_amt = float(pos['positionAmt'])
+                if position_amt != 0:  # 只显示有持仓的
+                    active_positions.append({
+                        'symbol': pos['symbol'],
+                        'side': 'LONG' if position_amt > 0 else 'SHORT',
+                        'size': abs(position_amt),
+                        'entry_price': float(pos['entryPrice']),
+                        'mark_price': float(pos['markPrice']),
+                        'pnl': float(pos['unRealizedPnl']),
+                        'pnl_pct': float(pos['percentage']),
+                        'margin_type': pos['marginType'],
+                        'leverage': pos['leverage']
+                    })
+            
+            return active_positions
+            
+        except Exception as e:
+            return {"error": f"获取持仓失败: {str(e)}"}
+
+    def place_futures_order(self, symbol: str, side: str, quantity: float, order_type: str = "MARKET", price: float = None, stop_price: float = None):
+        """下期货订单"""
+        try:
+            if not self.binance_client:
+                return {"error": "Binance客户端未初始化"}
+            
+            # 安全检查
+            if quantity <= 0:
+                return {"error": "订单数量必须大于0"}
+            
+            # 构建订单参数
+            order_params = {
+                'symbol': symbol,
+                'side': side.upper(),
+                'type': order_type.upper(),
+                'quantity': quantity
+            }
+            
+            # 根据订单类型添加价格参数
+            if order_type.upper() in ['LIMIT', 'STOP', 'TAKE_PROFIT']:
+                if price is None:
+                    return {"error": f"{order_type}订单需要指定价格"}
+                order_params['price'] = price
+                order_params['timeInForce'] = 'GTC'  # Good Till Cancel
+            
+            if order_type.upper() in ['STOP_MARKET', 'TAKE_PROFIT_MARKET']:
+                if stop_price is None:
+                    return {"error": f"{order_type}订单需要指定触发价格"}
+                order_params['stopPrice'] = stop_price
+            
+            # 下单
+            result = self.binance_client.futures_create_order(**order_params)
+            
+            return {
+                "success": True,
+                "order_id": result['orderId'],
+                "symbol": result['symbol'],
+                "side": result['side'],
+                "type": result['type'],
+                "quantity": result['origQty'],
+                "price": result.get('price', 'MARKET'),
+                "status": result['status']
+            }
+            
+        except Exception as e:
+            return {"error": f"下单失败: {str(e)}"}
+
+    def set_leverage(self, symbol: str, leverage: int):
+        """设置杠杆倍数"""
+        try:
+            if not self.binance_client:
+                return {"error": "Binance客户端未初始化"}
+            
+            if leverage < 1 or leverage > 125:
+                return {"error": "杠杆倍数必须在1-125之间"}
+            
+            result = self.binance_client.futures_change_leverage(
+                symbol=symbol,
+                leverage=leverage
+            )
+            
+            return {
+                "success": True,
+                "symbol": result['symbol'],
+                "leverage": result['leverage']
+            }
+            
+        except Exception as e:
+            return {"error": f"设置杠杆失败: {str(e)}"}
+
+    def cancel_all_orders(self, symbol: str):
+        """取消所有订单"""
+        try:
+            if not self.binance_client:
+                return {"error": "Binance客户端未初始化"}
+            
+            result = self.binance_client.futures_cancel_all_open_orders(symbol=symbol)
+            return {"success": True, "cancelled_orders": len(result)}
+            
+        except Exception as e:
+            return {"error": f"取消订单失败: {str(e)}"}
+
+    def close_position(self, symbol: str):
+        """平仓"""
+        try:
+            if not self.binance_client:
+                return {"error": "Binance客户端未初始化"}
+            
+            # 获取当前持仓
+            positions = self.binance_client.futures_position_information(symbol=symbol)
+            position = positions[0] if positions else None
+            
+            if not position:
+                return {"error": "未找到持仓信息"}
+            
+            position_amt = float(position['positionAmt'])
+            if position_amt == 0:
+                return {"error": "当前无持仓"}
+            
+            # 平仓：持多仓则卖出，持空仓则买入
+            side = 'SELL' if position_amt > 0 else 'BUY'
+            quantity = abs(position_amt)
+            
+            result = self.place_futures_order(
+                symbol=symbol,
+                side=side,
+                quantity=quantity,
+                order_type='MARKET'
+            )
+            
+            return result
+            
+        except Exception as e:
+            return {"error": f"平仓失败: {str(e)}"}
+
+    def execute_trading_decision(self, decision_data: dict):
+        """执行交易决策，包含风险控制检查"""
+        try:
+            # 风险控制预检查
+            risk_check = self.risk_control_check(decision_data)
+            if not risk_check['allowed']:
+                return {"error": f"风险控制阻止交易: {risk_check['reason']}"}
+            
+            # 解析交易决策
+            action = decision_data.get('action', '').upper()  # BUY/SELL/HOLD/CLOSE
+            symbol = decision_data.get('symbol', 'BTCUSDT')
+            quantity = decision_data.get('quantity', 0)
+            leverage = decision_data.get('leverage', 1)
+            stop_loss = decision_data.get('stop_loss')
+            take_profit = decision_data.get('take_profit')
+            
+            results = []
+            
+            # 执行主要交易动作
+            if action == 'HOLD':
+                results.append({"action": "HOLD", "message": "保持观望，不执行交易"})
+                
+            elif action == 'CLOSE':
+                # 平仓
+                result = self.close_position(symbol)
+                results.append({"action": "CLOSE", "result": result})
+                
+            elif action in ['BUY', 'SELL']:
+                # 设置杠杆
+                if leverage > 1:
+                    lev_result = self.set_leverage(symbol, leverage)
+                    results.append({"action": "SET_LEVERAGE", "result": lev_result})
+                
+                # 下主单
+                order_result = self.place_futures_order(
+                    symbol=symbol,
+                    side=action,
+                    quantity=quantity,
+                    order_type='MARKET'
+                )
+                results.append({"action": f"{action}_ORDER", "result": order_result})
+                
+                # 如果主单成功，设置止损止盈
+                if order_result.get('success'):
+                    if stop_loss:
+                        stop_side = 'SELL' if action == 'BUY' else 'BUY'
+                        stop_result = self.place_futures_order(
+                            symbol=symbol,
+                            side=stop_side,
+                            quantity=quantity,
+                            order_type='STOP_MARKET',
+                            stop_price=stop_loss
+                        )
+                        results.append({"action": "STOP_LOSS", "result": stop_result})
+                    
+                    if take_profit:
+                        tp_side = 'SELL' if action == 'BUY' else 'BUY'
+                        tp_result = self.place_futures_order(
+                            symbol=symbol,
+                            side=tp_side,
+                            quantity=quantity,
+                            order_type='TAKE_PROFIT_MARKET',
+                            stop_price=take_profit
+                        )
+                        results.append({"action": "TAKE_PROFIT", "result": tp_result})
+            
+            return {"success": True, "execution_results": results}
+            
+        except Exception as e:
+            return {"error": f"执行交易决策失败: {str(e)}"}
+
+    def risk_control_check(self, decision_data: dict):
+        """风险控制检查"""
+        try:
+            action = decision_data.get('action', '').upper()
+            symbol = decision_data.get('symbol', 'BTCUSDT')
+            quantity = decision_data.get('quantity', 0)
+            leverage = decision_data.get('leverage', 1)
+            
+            # 检查1: 杠杆倍数限制
+            if leverage > 100:
+                return {"allowed": False, "reason": f"杠杆倍数{leverage}超过最大限制100倍"}
+            
+            # 检查2: 最小交易量
+            if action in ['BUY', 'SELL'] and quantity <= 0:
+                return {"allowed": False, "reason": f"交易数量{quantity}无效"}
+            
+            # 检查3: 获取账户余额进行资金检查
+            balance = self.get_account_balance()
+            if 'error' in balance:
+                return {"allowed": True, "reason": "无法获取余额，跳过资金检查"}  # 不阻止交易
+            
+            # 检查4: 资金充足性检查 (简化版)
+            usdt_balance = balance.get('USDT', {}).get('free', 0)
+            if action in ['BUY', 'SELL'] and usdt_balance < 10:  # 最少10 USDT
+                return {"allowed": False, "reason": f"USDT余额不足: {usdt_balance:.2f}"}
+            
+            # 检查5: 最大持仓限制
+            positions = self.get_current_positions()
+            if not isinstance(positions, list):
+                positions = []
+            
+            if len(positions) >= 5:  # 最多同时持有5个仓位
+                return {"allowed": False, "reason": f"持仓数量已达上限: {len(positions)}/5"}
+            
+            # 检查6: 止损价格合理性
+            if action in ['BUY', 'SELL']:
+                stop_loss = decision_data.get('stop_loss')
+                take_profit = decision_data.get('take_profit')
+                
+                if stop_loss and take_profit:
+                    if action == 'BUY' and stop_loss >= take_profit:
+                        return {"allowed": False, "reason": "做多时止损价格不能高于止盈价格"}
+                    elif action == 'SELL' and stop_loss <= take_profit:
+                        return {"allowed": False, "reason": "做空时止损价格不能低于止盈价格"}
+            
+            return {"allowed": True, "reason": "风险检查通过"}
+            
+        except Exception as e:
+            # 风险检查出错时允许交易，但记录警告
+            print(f"⚠️ 风险检查出错: {e}")
+            return {"allowed": True, "reason": "风险检查异常，允许交易"}
+
+    def get_safe_trading_limits(self):
+        """获取安全交易限额建议"""
+        try:
+            balance = self.get_account_balance()
+            if 'error' in balance:
+                # API失败时返回默认安全值
+                print("⚠️ 无法获取余额，使用默认安全限额")
+                return {
+                    "account_balance": 0,
+                    "max_position_size": 0.001,
+                    "recommended_leverage": 5,
+                    "max_risk_per_trade": 0.10
+                }
+            
+            usdt_balance = balance.get('USDT', {}).get('free', 0)
+            
+            # 基于余额计算安全限额
+            if usdt_balance < 100:
+                max_position_pct = 0.05  # 5%
+                recommended_leverage = 2
+            elif usdt_balance < 1000:
+                max_position_pct = 0.10  # 10%
+                recommended_leverage = 5
+            else:
+                max_position_pct = 0.15  # 15%
+                recommended_leverage = 10
+            
+            # 获取当前BTC价格估算仓位大小
+            try:
+                import yfinance as yf
+                btc_ticker = yf.Ticker("BTC-USD")
+                btc_price = btc_ticker.info.get('regularMarketPrice', 100000)
+                max_position_size = (usdt_balance * max_position_pct) / btc_price
+            except:
+                max_position_size = 0.001  # 默认最小值
+            
+            return {
+                "account_balance": usdt_balance,
+                "max_position_size": round(max_position_size, 6),
+                "recommended_leverage": recommended_leverage,
+                "max_risk_per_trade": max_position_pct
+            }
+            
+        except Exception as e:
+            print(f"⚠️ 获取安全限额失败: {e}")
+            return {
+                "account_balance": 0,
+                "max_position_size": 0.001,
+                "recommended_leverage": 5,
+                "max_risk_per_trade": 0.10
+            }
+
+    def get_trading_tools_description(self):
+        """返回交易工具的描述，供LLM了解可用功能"""
+        return """
+可用的交易工具：
+1. get_account_balance() - 查询账户余额
+2. get_current_positions() - 查询当前持仓
+3. place_futures_order(symbol, side, quantity, order_type, price, stop_price) - 下期货订单
+4. set_leverage(symbol, leverage) - 设置杠杆倍数 
+5. cancel_all_orders(symbol) - 取消所有订单
+6. close_position(symbol) - 平仓
+7. execute_trading_decision(decision_data) - 执行完整交易决策
+
+交易决策格式：
+{
+    "action": "BUY/SELL/HOLD/CLOSE",
+    "symbol": "BTCUSDT", 
+    "quantity": 0.001,
+    "leverage": 10,
+    "stop_loss": 95000,
+    "take_profit": 105000
+}
+"""
 
     def _call_claude_api(self, prompt: str, agent_name: str) -> str:
         """调用Claude API的通用方法"""
@@ -1027,32 +1411,137 @@ class CryptoBot:
 
         # 代理6: 交易员 - 做出具体交易决策
         print("💰 [交易员] 制定交易策略...")
+        
+        # 获取当前账户状态和安全限额
+        print("📊 获取账户信息...")
+        account_balance = self.get_account_balance()
+        current_positions = self.get_current_positions()
+        safe_limits = self.get_safe_trading_limits()
+        
+        # 打印账户信息
+        print("💰 当前账户余额:")
+        if 'error' not in account_balance:
+            for asset, balance_info in account_balance.items():
+                total = balance_info['total']
+                if total > 0:
+                    print(f"  {asset}: 可用={balance_info['free']:.6f}, 冻结={balance_info['locked']:.6f}, 总计={total:.6f}")
+        else:
+            print(f"  ❌ {account_balance['error']}")
+        
+        print("📈 当前持仓:")
+        if isinstance(current_positions, list) and current_positions:
+            for pos in current_positions:
+                side = pos['side']
+                symbol = pos['symbol']
+                size = pos['size']
+                pnl = pos['pnl']
+                pnl_pct = pos['pnl_pct']
+                print(f"  {symbol} {side}: 数量={size}, 盈亏={pnl:.2f}USDT ({pnl_pct:.2f}%)")
+        else:
+            if isinstance(current_positions, dict) and 'error' in current_positions:
+                print(f"  ❌ {current_positions['error']}")
+            else:
+                print("  ✅ 无持仓")
+        
+        print("⚖️ 安全交易限额:")
+        if safe_limits and 'account_balance' in safe_limits:
+            print(f"  账户余额: {safe_limits['account_balance']:.2f} USDT")
+            print(f"  最大仓位: {safe_limits['max_position_size']:.6f} BTC")
+            print(f"  推荐杠杆: {safe_limits['recommended_leverage']}x")
+            print(f"  单笔风险: {safe_limits['max_risk_per_trade']*100:.1f}% 资金")
+        else:
+            print("  ⚠️ 无法获取安全限额，使用默认值")
+            print("  默认最大仓位: 0.001 BTC")
+            print("  默认推荐杠杆: 5x")
+            print("  默认单笔风险: 10% 资金")
+        
         trading_prompt = f"""
-你是专业交易员，基于以上所有分析师的报告，请制定具体的交易策略：
+你是专业交易员，基于以上所有分析师的报告，请制定具体的交易策略并输出结构化JSON格式决策：
 
 === 综合分析报告 ===
 {final_analysis}
 
-=== 交易参数 ===
-- 初始资金: 1000美金
-- 最高杠杆: 100倍
+=== 可用交易工具 ===
+{self.get_trading_tools_description()}
+
+=== 当前账户状态 ===
+余额信息: {json.dumps(account_balance, indent=2, ensure_ascii=False)}
+当前持仓: {json.dumps(current_positions, indent=2, ensure_ascii=False)}
+安全限额建议: {json.dumps(safe_limits, indent=2, ensure_ascii=False)}
+
+=== 交易参数要求 ===
 - 交易标的: {symbol}
+- 风险控制: 严格遵守6层风险控制体系
+- 输出格式: 必须是JSON格式，以便自动执行
 
-请提供：
-1. 交易决策：观望/做多/做空
-2. 入场点位（具体价格）
-3. 仓位大小（占总资金百分比）
-4. 杠杆倍数（1-100倍）
-5. 止损位置
-6. 止盈目标
-7. 风险控制说明
+请输出以下JSON格式的交易决策：
+{{
+    "action": "BUY/SELL/HOLD/CLOSE",
+    "symbol": "{symbol}",
+    "quantity": 0.001,
+    "leverage": 5,
+    "stop_loss": 95000,
+    "take_profit": 105000,
+    "risk_level": "LOW/MEDIUM/HIGH",
+    "confidence": 85,
+    "reasoning": "详细的交易理由和风险分析",
+    "entry_price": 100000,
+    "position_size_pct": 10
+}}
 
-请给出明确的交易计划，不要模糊建议。
+注意：
+1. quantity必须是具体的数量（如0.001 BTC）
+2. 价格必须是具体数值（如95000表示95000 USDT）
+3. leverage在1-100倍之间
+4. confidence是置信度百分比（0-100）
+5. reasoning必须包含技术面、基本面、市场情绪的综合考虑
+
+请基于分析结果给出明确可执行的JSON决策。
 """
 
         trading_decision = self._call_claude_api(trading_prompt, "交易员")
-
-        return trading_decision
+        print("\n" + "="*80)
+        
+        # 尝试解析并执行交易决策
+        print("⚡ [系统] 解析交易决策...")
+        try:
+            # 尝试从回复中提取JSON
+            import re
+            json_match = re.search(r'\{.*\}', trading_decision, re.DOTALL)
+            if json_match:
+                decision_data = json.loads(json_match.group())
+                print(f"✅ 解析成功: {decision_data.get('action', 'UNKNOWN')} - {decision_data.get('reasoning', '无理由')[:100]}...")
+                
+                # 如果有Binance客户端，自动执行交易决策
+                if self.binance_client:
+                    print("🚀 开始执行交易决策...")
+                    execution_result = self.execute_trading_decision(decision_data)
+                    print(f"💼 执行结果:")
+                    if execution_result.get('success'):
+                        print("✅ 交易执行成功！")
+                        for result in execution_result.get('execution_results', []):
+                            action = result.get('action', 'UNKNOWN')
+                            result_data = result.get('result', {})
+                            if result_data.get('success'):
+                                print(f"  ✅ {action}: 成功")
+                                if 'order_id' in result_data:
+                                    print(f"     订单ID: {result_data['order_id']}")
+                                if 'symbol' in result_data:
+                                    print(f"     交易对: {result_data['symbol']}")
+                                if 'quantity' in result_data:
+                                    print(f"     数量: {result_data['quantity']}")
+                            else:
+                                print(f"  ❌ {action}: {result_data.get('error', '未知错误')}")
+                    else:
+                        print(f"❌ 交易执行失败: {execution_result.get('error', '未知错误')}")
+                else:
+                    print("⚠️ 未配置Binance客户端，仅输出交易建议")
+            else:
+                print("❌ 无法解析JSON格式决策，请检查交易员输出")
+        except Exception as e:
+            print(f"❌ 解析交易决策失败: {e}")
+        
+        return final_analysis
 
 def main():
     bot = CryptoBot()

@@ -1094,28 +1094,52 @@ class CryptoBot:
             }
 
     def get_account_balance(self):
-        """获取账户余额"""
+        """获取账户余额（跟单API使用期货账户余额）"""
         try:
             if not self.binance_client:
                 return {"error": "Binance客户端未初始化"}
             
-            account = self.binance_client.get_account()
-            balances = {}
-            
-            for balance in account['balances']:
-                asset = balance['asset']
-                free = float(balance['free'])
-                locked = float(balance['locked'])
-                total = free + locked
+            # 跟单API使用期货账户，获取期货账户余额
+            try:
+                account = self.binance_client.futures_account()
+                balances = {}
                 
-                if total > 0:  # 只显示有余额的币种
-                    balances[asset] = {
-                        'free': free,
-                        'locked': locked,
-                        'total': total
-                    }
-            
-            return balances
+                for balance in account.get('assets', []):
+                    asset = balance['asset']
+                    wallet_balance = float(balance.get('walletBalance', 0))
+                    unrealized_profit = float(balance.get('unrealizedProfit', 0))
+                    available_balance = float(balance.get('availableBalance', 0))
+                    
+                    if wallet_balance > 0 or available_balance > 0:  # 显示有余额的币种
+                        balances[asset] = {
+                            'free': available_balance,
+                            'locked': wallet_balance - available_balance,
+                            'total': wallet_balance,
+                            'unrealized_profit': unrealized_profit
+                        }
+                
+                return balances
+                
+            except Exception as futures_error:
+                # 如果期货API失败，尝试现货API作为备用
+                print(f"⚠️ 期货账户余额获取失败，尝试现货账户: {futures_error}")
+                account = self.binance_client.get_account()
+                balances = {}
+                
+                for balance in account['balances']:
+                    asset = balance['asset']
+                    free = float(balance['free'])
+                    locked = float(balance['locked'])
+                    total = free + locked
+                    
+                    if total > 0:  # 只显示有余额的币种
+                        balances[asset] = {
+                            'free': free,
+                            'locked': locked,
+                            'total': total
+                        }
+                
+                return balances
             
         except Exception as e:
             return {"error": f"获取余额失败: {str(e)}"}
@@ -1368,9 +1392,18 @@ class CryptoBot:
                 return {"allowed": True, "reason": "无法获取余额，跳过资金检查"}  # 不阻止交易
             
             # 检查4: 资金充足性检查 (简化版，仅作提示)
-            usdt_balance = balance.get('USDT', {}).get('free', 0)
+            # 期货账户使用 available_balance 或 free 字段
+            usdt_info = balance.get('USDT', {})
+            usdt_balance = usdt_info.get('free', 0)
+            
+            # 如果是期货账户，可能显示更详细的信息
+            if 'total' in usdt_info and 'unrealized_profit' in usdt_info:
+                total_balance = usdt_info.get('total', 0)
+                unrealized_pnl = usdt_info.get('unrealized_profit', 0)
+                print(f"💰 期货账户 USDT: 总额={total_balance:.2f}, 可用={usdt_balance:.2f}, 未实现盈亏={unrealized_pnl:.2f}", flush=True)
+            
             if action in ['BUY', 'SELL'] and usdt_balance < 1:
-                print(f"⚠️ 提示：当前USDT余额较低 {usdt_balance:.2f}", flush=True)
+                print(f"⚠️ 提示：当前USDT可用余额较低 {usdt_balance:.2f}", flush=True)
                 # 不阻止交易，仅作提示
             
             # 检查5: 最大持仓限制
@@ -2071,7 +2104,13 @@ class CryptoBot:
             for asset, balance_info in account_balance.items():
                 total = balance_info['total']
                 if total > 0:
-                    print(f"  {asset}: 可用={balance_info['free']:.6f}, 冻结={balance_info['locked']:.6f}, 总计={total:.6f}")
+                    if 'unrealized_profit' in balance_info:
+                        # 期货账户信息
+                        unrealized_pnl = balance_info['unrealized_profit']
+                        print(f"  {asset}: 可用={balance_info['free']:.6f}, 冻结={balance_info['locked']:.6f}, 总计={total:.6f}, 未实现盈亏={unrealized_pnl:.6f}")
+                    else:
+                        # 现货账户信息
+                        print(f"  {asset}: 可用={balance_info['free']:.6f}, 冻结={balance_info['locked']:.6f}, 总计={total:.6f}")
         else:
             print(f"  ❌ {account_balance['error']}")
         

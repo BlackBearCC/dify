@@ -20,7 +20,7 @@
   * 修复交易员代理未调用LLM生成决策的bug  
   * 添加JSON决策解析和执行准备功能，支持自动交易执行
 - 2025-09-01: 集成Binance实盘交易功能，交易员可执行真实下单操作
-  * 添加完整Binance期货交易接口(下单、平仓、设置杠杆、查询余额/持仓)
+  * 添加完整Binance永续交易接口(下单、平仓、设置杠杆、查询余额/持仓)
   * 交易员输出结构化JSON格式决策，支持自动解析和执行
   * 实现6层风险控制检查(杠杆限制、资金检查、持仓限制、止损合理性等)
   * 支持市价单、止损单、止盈单的自动设置
@@ -503,18 +503,31 @@ class CryptoBot:
         """显示今天的分析缓存状态"""
         try:
             today = datetime.now().strftime('%Y-%m-%d')
-            analysis_types = [
-                ('fundamental_analysis', '基本面分析师'),
+            # 全市场分析
+            global_analysis_types = [
                 ('macro_analysis', '宏观分析师'),
                 ('market_sentiment', '市场分析师')
             ]
             
             print(f"📅 今天({today})的分析缓存状态:", flush=True)
-            
-            for data_type, agent_name in analysis_types:
+            print("🌍 全市场分析:")
+            for data_type, agent_name in global_analysis_types:
                 cached_analysis = self.get_today_analysis(data_type, agent_name)
                 status = "✅ 已缓存" if cached_analysis else "❌ 未生成"
                 print(f"  {agent_name}: {status}", flush=True)
+            
+            # 币种分析（检查常用币种）
+            common_symbols = ['BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'ADAUSDT', 'SOLUSDT']
+            print("💰 币种基本面分析:")
+            for symbol in common_symbols:
+                cached_analysis = self.get_today_analysis(f'fundamental_analysis_{symbol}', '基本面分析师')
+                status = "✅ 已缓存" if cached_analysis else "❌ 未生成"
+                print(f"  {symbol.replace('USDT', '')}: {status}", flush=True)
+                
+            # 研究报告综合
+            research_summary = self.get_today_analysis('research_summary', '研究部门首席分析师')
+            summary_status = "✅ 已缓存" if research_summary else "❌ 未生成"
+            print(f"📋 研究部门综合报告: {summary_status}", flush=True)
                 
         except Exception as e:
             print(f"❌ 检查缓存状态失败: {e}", flush=True)
@@ -1108,12 +1121,12 @@ class CryptoBot:
             return {"error": f"获取余额失败: {str(e)}"}
 
     def get_current_positions(self):
-        """获取当前持仓（期货/跟单API）"""
+        """获取当前持仓（永续/跟单API）"""
         try:
             if not self.binance_client:
                 return {"error": "Binance客户端未初始化"}
             
-            # 获取期货持仓
+            # 获取永续持仓
             positions = self.binance_client.futures_position_information()
             active_positions = []
             
@@ -1151,7 +1164,7 @@ class CryptoBot:
             return {"error": f"获取持仓失败: {str(e)}"}
 
     def place_futures_order(self, symbol: str, side: str, quantity: float, order_type: str = "MARKET", price: float = None, stop_price: float = None):
-        """下期货订单"""
+        """下永续订单"""
         try:
             if not self.binance_client:
                 return {"error": "Binance客户端未初始化"}
@@ -1354,10 +1367,11 @@ class CryptoBot:
             if 'error' in balance:
                 return {"allowed": True, "reason": "无法获取余额，跳过资金检查"}  # 不阻止交易
             
-            # 检查4: 资金充足性检查 (简化版)
+            # 检查4: 资金充足性检查 (简化版，仅作提示)
             usdt_balance = balance.get('USDT', {}).get('free', 0)
-            if action in ['BUY', 'SELL'] and usdt_balance < 10:  # 最少10 USDT
-                return {"allowed": False, "reason": f"USDT余额不足: {usdt_balance:.2f}，这是正常的模拟提示，实盘需要充值资金"}
+            if action in ['BUY', 'SELL'] and usdt_balance < 1:
+                print(f"⚠️ 提示：当前USDT余额较低 {usdt_balance:.2f}", flush=True)
+                # 不阻止交易，仅作提示
             
             # 检查5: 最大持仓限制
             positions = self.get_current_positions()
@@ -1443,7 +1457,7 @@ class CryptoBot:
 可用的交易工具：
 1. get_account_balance() - 查询账户余额
 2. get_current_positions() - 查询当前持仓
-3. place_futures_order(symbol, side, quantity, order_type, price, stop_price) - 下期货订单
+3. place_futures_order(symbol, side, quantity, order_type, price, stop_price) - 下永续订单
 4. set_leverage(symbol, leverage) - 设置杠杆倍数 
 5. cancel_all_orders(symbol) - 取消所有订单
 6. close_position(symbol) - 平仓
@@ -1895,79 +1909,16 @@ class CryptoBot:
         macd_signal = macd.ewm(span=signal).mean()
         return macd, macd_signal
 
-    def ask_claude_with_data(self, question: str, symbol="BTCUSDT") -> str:
-        """多代理架构分析 - 结合各个专业代理的分析结果"""
-        print(f"🚀 启动多代理分析架构", flush=True)
-        print(f"📊 分析币种: {symbol}", flush=True)
-        print("="*80, flush=True)
-
-        # 代理1: K线技术分析
-        print("📈 [技术分析师] 开始分析...", flush=True)
-        kline_analysis = self.analyze_kline_data(symbol)
+    def conduct_research_analysis(self, symbols):
+        """研究部门：多币种综合分析"""
+        research_results = {}
         
-        # 保存技术分析结果到数据库
-        self.save_to_database(
-            data_type='technical_analysis',
-            agent_name='技术分析师',
-            symbol=symbol,
-            content=kline_analysis,
-            summary=kline_analysis[:50] if kline_analysis else '技术分析执行',
-            status='completed'
-        )
-        
-        print("\n" + "="*80, flush=True)
-
-        # 代理2: 市场情绪分析 - 优先使用今天的缓存
-        print("🔥 [市场分析师] 开始分析...", flush=True)
-        sentiment_analysis = self.get_today_analysis('market_sentiment', '市场分析师')
-        
-        if sentiment_analysis is None:
-            # 今天还没有市场情绪分析，重新生成
-            print("🔄 生成新的市场情绪分析...", flush=True)
-            sentiment_analysis = self.analyze_market_sentiment()
-            
-            # 保存市场情绪分析结果到数据库
-            self.save_to_database(
-                data_type='market_sentiment',
-                agent_name='市场分析师',
-                content=sentiment_analysis,
-                summary=sentiment_analysis[:50] if sentiment_analysis else '市场情绪分析',
-                status='completed'
-            )
-        
-        print("\n" + "="*80, flush=True)
-
-        # 代理3: 基本面分析 - 优先使用今天的缓存
-        print("📊 [基本面分析师] 开始分析...", flush=True)
-        fundamental_analysis = self.get_today_analysis('fundamental_analysis', '基本面分析师')
-        
-        if fundamental_analysis is None:
-            # 今天还没有基本面分析，重新生成
-            print("🔄 生成新的基本面分析...", flush=True)
-            fundamental_analysis = self.analyze_fundamental_data(symbol)
-            
-            # 保存基本面分析结果到数据库
-            self.save_to_database(
-                data_type='fundamental_analysis',
-                agent_name='基本面分析师',
-                symbol=symbol,
-                content=fundamental_analysis,
-                summary=fundamental_analysis[:50] if fundamental_analysis else '基本面分析',
-                status='completed'
-            )
-        
-        print("\n" + "="*80, flush=True)
-        
-        # 代理4: 宏观数据分析 - 优先使用今天的缓存
-        print("🌍 [宏观分析师] 开始分析...", flush=True)
+        # 1. 宏观分析（全市场，只做一次）
+        print("🌍 [研究部门-宏观分析师] 分析全球市场环境...", flush=True)
         macro_analysis = self.get_today_analysis('macro_analysis', '宏观分析师')
-        
         if macro_analysis is None:
-            # 今天还没有宏观分析，重新生成
             print("🔄 生成新的宏观分析...", flush=True)
             macro_analysis = self.analyze_macro_data()
-            
-            # 保存宏观分析结果到数据库
             self.save_to_database(
                 data_type='macro_analysis',
                 agent_name='宏观分析师',
@@ -1976,59 +1927,138 @@ class CryptoBot:
                 status='completed'
             )
         
-        print("\n" + "="*80, flush=True)
-
-        # 代理5: 综合分析师 - 整合所有分析结果
-        print("🎯 [首席分析师] 开始整合分析...", flush=True)
-        integration_prompt = f"""
-你是首席分析师，请整合以下四个专业代理的分析报告，给出综合性的专业分析。
-
-=== 技术分析师报告 ===
-{kline_analysis}
-
-=== 市场分析师报告 ===
-{sentiment_analysis}
-
-=== 基本面分析师报告 ===
-{fundamental_analysis}
-
-=== 宏观分析师报告 ===
-{macro_analysis}
-
-=== 用户问题 ===
-{question}
-
-请基于技术面、市场情绪、基本面和宏观面的综合分析，提供全面的投资建议。
-注意平衡各方观点，给出客观专业的结论，重点关注：
-1. 各维度分析的一致性和分歧点
-2. 短期和中长期的投资策略差异
-3. 风险因素的多维度评估
-4. 关键的市场转折点和信号
-
-"""
-
-        final_analysis = self._call_claude_api(integration_prompt, "首席分析师")
-        
-        # 保存首席分析师结果到数据库
-        try:
-            # 生成摘要（取开头部分作为摘要）
-            summary = final_analysis[:50] if final_analysis else '首席分析师综合分析'
-            
+        # 2. 市场情绪分析（全市场，只做一次）
+        print("🔥 [研究部门-市场分析师] 分析市场情绪...", flush=True)
+        sentiment_analysis = self.get_today_analysis('market_sentiment', '市场分析师')
+        if sentiment_analysis is None:
+            print("🔄 生成新的市场情绪分析...", flush=True)
+            sentiment_analysis = self.analyze_market_sentiment()
             self.save_to_database(
-                data_type='chief_analysis',
-                agent_name='首席分析师',
-                symbol=symbol,
-                content=final_analysis,
-                summary=summary,
+                data_type='market_sentiment',
+                agent_name='市场分析师',
+                content=sentiment_analysis,
+                summary=sentiment_analysis[:50] if sentiment_analysis else '市场情绪分析',
                 status='completed'
             )
-        except Exception as e:
-            print(f"⚠️ 保存首席分析师结果失败: {e}")
+        
+        # 3. 各币种的技术面和基本面分析
+        for symbol in symbols:
+            print(f"📈 [研究部门-技术分析师] 分析 {symbol}...", flush=True)
+            
+            # 技术分析（每个币种都要分析）
+            kline_analysis = self.analyze_kline_data(symbol)
+            self.save_to_database(
+                data_type='technical_analysis',
+                agent_name='技术分析师',
+                symbol=symbol,
+                content=kline_analysis,
+                summary=kline_analysis[:50] if kline_analysis else f'{symbol}技术分析',
+                status='completed'
+            )
+            
+            print(f"📊 [研究部门-基本面分析师] 分析 {symbol}...", flush=True)
+            
+            # 基本面分析（优先使用缓存）
+            fundamental_analysis = self.get_today_analysis(f'fundamental_analysis_{symbol}', '基本面分析师')
+            if fundamental_analysis is None:
+                print(f"🔄 生成新的{symbol}基本面分析...", flush=True)
+                fundamental_analysis = self.analyze_fundamental_data(symbol)
+                self.save_to_database(
+                    data_type=f'fundamental_analysis_{symbol}',
+                    agent_name='基本面分析师',
+                    symbol=symbol,
+                    content=fundamental_analysis,
+                    summary=fundamental_analysis[:50] if fundamental_analysis else f'{symbol}基本面分析',
+                    status='completed'
+                )
+            
+            research_results[symbol] = {
+                'technical': kline_analysis,
+                'fundamental': fundamental_analysis
+            }
+        
+        # 4. 研究部门综合报告
+        print("🎯 [研究部门-首席分析师] 整合多币种研究报告...", flush=True)
+        research_summary = self.generate_research_summary(research_results, macro_analysis, sentiment_analysis)
+        
+        return {
+            'macro_analysis': macro_analysis,
+            'sentiment_analysis': sentiment_analysis,
+            'symbol_analyses': research_results,
+            'research_summary': research_summary
+        }
+    
+    def generate_research_summary(self, symbol_analyses, macro_analysis, sentiment_analysis):
+        """生成研究部门综合报告"""
+        symbols_list = list(symbol_analyses.keys())
+        
+        # 构建研究报告
+        symbol_reports = ""
+        for symbol, analyses in symbol_analyses.items():
+            symbol_reports += f"\n=== {symbol} 研究报告 ===\n"
+            symbol_reports += f"技术分析:\n{analyses['technical']}\n\n"
+            symbol_reports += f"基本面分析:\n{analyses['fundamental']}\n\n"
+        
+        research_prompt = f"""
+你是华尔街研究部门的首席分析师，请基于团队的多币种研究结果，撰写综合研究报告。
+
+=== 宏观环境分析 ===
+{macro_analysis}
+
+=== 市场情绪分析 ===
+{sentiment_analysis}
+
+=== 各币种专项研究 ===
+{symbol_reports}
+
+请从研究部门的角度，提供以下内容：
+1. 当前市场环境的整体评估
+2. 各币种的投资价值排序和理由
+3. 不同币种之间的关联性分析
+4. 推荐的投资组合配置建议
+5. 关键风险点和机会点识别
+6. 后续重点关注的研究方向
+
+请以专业研究报告的形式输出，为交易部门提供决策支持。
+"""
+        
+        research_summary = self._call_claude_api(research_prompt, "研究部门首席分析师")
+        
+        # 保存研究报告
+        self.save_to_database(
+            data_type='research_summary',
+            agent_name='研究部门首席分析师',
+            content=research_summary,
+            summary=research_summary[:50] if research_summary else '多币种研究综合报告',
+            status='completed'
+        )
+        
+        return research_summary
+
+    def ask_claude_with_data(self, question: str, symbols=None) -> str:
+        """华尔街式多币种分析架构 - 研究部门 + 交易部门"""
+        if symbols is None:
+            symbols = ["BTCUSDT"]  # 默认分析BTC
+        elif isinstance(symbols, str):
+            symbols = [symbols]  # 单个币种转为列表
+            
+        print(f"🏛️ 启动华尔街式分析架构", flush=True)
+        print(f"📊 研究部门分析币种: {', '.join(symbols)}", flush=True)
+        print("="*80, flush=True)
+
+        # === 研究部门：多币种分析 ===
+        research_results = self.conduct_research_analysis(symbols)
         
         print("\n" + "="*80, flush=True)
 
-        # 代理6: 交易员 - 做出具体交易决策
-        print("💰 [交易员] 制定交易策略...", flush=True)
+        # === 交易部门：投资组合决策 ===
+        trading_decisions = self.conduct_trading_analysis(research_results, question)
+        
+        return research_results['research_summary']  # 返回研究报告作为主要输出
+
+    def conduct_trading_analysis(self, research_results, question):
+        """交易部门：投资组合决策"""
+        print("💼 [交易部门] 制定投资组合策略...", flush=True)
         
         # 获取当前账户状态
         print("📊 获取账户信息...", flush=True)
@@ -2062,14 +2092,32 @@ class CryptoBot:
         
 
         
-        # 获取最近10次首席分析概要给交易员参考
-        recent_chief_analysis = self.get_recent_chief_analysis(10)
+        # 获取最近10次研究报告给交易员参考
+        recent_research = self.get_recent_chief_analysis(10)
+        
+        # 交易部门决策 - 永续交易员
+        symbols_analyzed = list(research_results['symbol_analyses'].keys())
+        # 选择主要分析币种进行交易决策（通常选第一个）
+        primary_symbol = symbols_analyzed[0] if symbols_analyzed else 'BTCUSDT'
+        primary_symbol_name = primary_symbol.replace('USDT', '')
         
         trading_prompt = f"""
-你是专业交易员，基于以上所有分析师的报告，请制定具体的交易策略并输出结构化JSON格式决策：
+你是专业永续交易员，基于研究部门的多币种分析报告，重点针对 {primary_symbol} 制定合约交易策略：
 
-=== 综合分析报告 ===
-{final_analysis}
+=== 研究部门综合报告 ===
+{research_results['research_summary']}
+
+=== {primary_symbol_name} 专项技术分析 ===
+{research_results['symbol_analyses'].get(primary_symbol, {}).get('technical', '无技术分析')}
+
+=== {primary_symbol_name} 专项基本面分析 ===
+{research_results['symbol_analyses'].get(primary_symbol, {}).get('fundamental', '无基本面分析')}
+
+=== 宏观环境 ===
+{research_results['macro_analysis']}
+
+=== 市场情绪 ===
+{research_results['sentiment_analysis']}
 
 === 可用交易工具 ===
 {self.get_trading_tools_description()}
@@ -2078,46 +2126,50 @@ class CryptoBot:
 余额信息: {json.dumps(account_balance, indent=2, ensure_ascii=False)}
 当前持仓: {json.dumps(current_positions, indent=2, ensure_ascii=False)}
 
-=== 最近10次首席分析概要（供参考） ===
-{json.dumps(recent_chief_analysis, indent=2, ensure_ascii=False)}
+=== 历史交易参考 ===
+{json.dumps(recent_research, indent=2, ensure_ascii=False)}
+
+=== 用户问题 ===
+{question}
 
 === 交易参数要求 ===
-- 交易标的: {symbol}
+- 交易标的: {primary_symbol}
 - 完全自主决策: 你可以根据分析结果自主决定所有交易参数
+- 合约交易风格: 专业，适合永续合约交易
 - 输出格式: 必须是JSON格式，以便自动执行
 
 请输出以下JSON格式的交易决策：
 {{
     "action": "BUY/SELL/HOLD/CLOSE",
-    "symbol": "{symbol}",
+    "symbol": "{primary_symbol}",
     "quantity": 0.001,
-    "leverage": 5,
+    "leverage": 10,
     "stop_loss": 95000,
     "take_profit": 105000,
-    "risk_level": "LOW/MEDIUM/HIGH",
+    "risk_level": "HIGH",
     "confidence": 85,
-    "reasoning": "详细的交易理由和风险分析",
+    "reasoning": "详细的交易理由，结合技术面、基本面、宏观和市场情绪",
     "entry_price": 100000,
-    "position_size_pct": 10
+    "position_size_pct": 20
 }}
 
 注意：
 1. quantity必须是具体的数量（如0.001 BTC）
 2. 价格必须是具体数值（如95000表示95000 USDT）
-3. leverage杠杆倍数由你自主决定，无系统限制
+3. leverage杠杆倍数由你自主决定，适合永续合约交易
 4. confidence是置信度百分比（0-100）
-5. reasoning必须包含技术面、基本面、市场情绪的综合考虑
+5. reasoning必须包含研究部门各维度分析的综合考虑
 6. 参考账户余额状况和历史交易表现
-7. 根据市场波动性和个人风险偏好决定杠杆和仓位
+7. 根据市场波动性和合约特性决定合适的杠杆和仓位
 
-请基于综合分析给出明确可执行的JSON决策。
+请基于研究部门的综合分析给出明确可执行的JSON决策。
 """
 
-        trading_decision = self._call_claude_api(trading_prompt, "交易员")
+        trading_decision = self._call_claude_api(trading_prompt, "永续交易员")
         print("\n" + "="*80)
         
-        # 尝试解析并执行交易决策
-        print("⚡ [系统] 解析交易决策...")
+        # 解析并执行交易决策
+        print("⚡ [交易部门] 解析交易决策...")
         try:
             # 尝试从回复中提取JSON
             import re
@@ -2126,13 +2178,13 @@ class CryptoBot:
                 decision_data = json.loads(json_match.group())
                 print(f"✅ 解析成功: {decision_data.get('action', 'UNKNOWN')} - {decision_data.get('reasoning', '无理由')[:100]}...")
                 
-                # 创建首席分析摘要（50字以内）
-                analysis_summary = decision_data.get('reasoning', final_analysis)[:50] if decision_data.get('reasoning') else final_analysis[:50]
-                
                 # 先显示交易统计（如果有历史记录）
                 stats = self.get_trading_stats()
                 if stats['total_trades'] > 0:
                     self.print_trading_stats()
+                
+                # 创建交易摘要
+                analysis_summary = decision_data.get('reasoning', '永续交易决策')[:50]
                 
                 # 如果有Binance客户端且不是观望操作，则直接执行交易
                 if self.binance_client and decision_data.get('action', '').upper() not in ['HOLD']:
@@ -2171,18 +2223,19 @@ class CryptoBot:
                             print("💡 这是模拟交易环境，交易决策分析已完成。", flush=True)
                             print("   如需实盘交易，请确保账户有足够的USDT余额。", flush=True)
                 elif decision_data.get('action', '').upper() == 'HOLD':
-                    print("⏳ 交易员建议观望，不执行交易")
+                    print("⏳ 永续交易员建议观望，不执行交易")
                     # 观望也记录决策
                     execution_result = {"success": True, "action": "HOLD", "message": "观望决策"}
                     self.record_trade(decision_data, execution_result, analysis_summary)
                 else:
                     print("⚠️ 未配置Binance客户端，仅输出交易建议")
+                    
             else:
-                print("❌ 无法解析JSON格式决策，请检查交易员输出")
+                print("❌ 无法解析JSON格式决策，请检查永续交易员输出")
         except Exception as e:
             print(f"❌ 解析交易决策失败: {e}")
         
-        return final_analysis
+        return trading_decision
 
 def main():
     bot = CryptoBot()
@@ -2202,14 +2255,25 @@ def main():
                 print("👋 程序已退出", flush=True)
                 return
         
-        # 命令行模式
+        # 命令行模式 - 支持多币种分析
         if len(sys.argv) == 2:
-            # 只有一个参数，检查是否是代币名
-            token = sys.argv[1].upper()
-            if token in ['BTC', 'ETH', 'XRP', 'BNB', 'ADA', 'SOL', 'DOGE', 'MATIC', 'DOT', 'AVAX', 'SHIB', 'LTC', 'UNI', 'LINK', 'TRX']:
-                symbol = token + 'USDT'
-                question = f"{token}日内走势如何？15分钟走势分析"
-                bot.ask_claude_with_data(question, symbol)
+            # 只有一个参数，检查是否是代币名或组合
+            arg = sys.argv[1].upper()
+            known_tokens = ['BTC', 'ETH', 'XRP', 'BNB', 'ADA', 'SOL', 'DOGE', 'MATIC', 'DOT', 'AVAX', 'SHIB', 'LTC', 'UNI', 'LINK', 'TRX']
+            
+            # 检查是否是多个币种（用逗号分隔）
+            if ',' in arg:
+                tokens = [token.strip() + 'USDT' for token in arg.split(',') if token.strip() in known_tokens]
+                if tokens:
+                    question = f"分析 {', '.join([t.replace('USDT', '') for t in tokens])} 的投资组合配置"
+                    bot.ask_claude_with_data(question, tokens)
+                else:
+                    print("❌ 未识别的币种组合")
+            elif arg in known_tokens:
+                # 单个币种
+                symbol = arg + 'USDT'
+                question = f"{arg}日内走势如何？技术面和基本面分析"
+                bot.ask_claude_with_data(question, [symbol])
             else:
                 question = sys.argv[1]
                 bot.ask_claude_with_data(question)
@@ -2220,16 +2284,17 @@ def main():
             if len(sys.argv) > 2 and sys.argv[1].upper().endswith('USDT'):
                 symbol = sys.argv[1].upper()
                 question = " ".join(sys.argv[2:])
-                bot.ask_claude_with_data(question, symbol)
+                bot.ask_claude_with_data(question, [symbol])
             else:
                 bot.ask_claude_with_data(question)
     else:
         # 交互模式
-        print("🚀 加密货币分析机器人 (输入quit退出)", flush=True)
+        print("🏛️ 华尔街式加密货币分析机器人 (输入quit退出)", flush=True)
         print("💡 用法示例:", flush=True)
-        print("   - 输入代币名: 'BTC' 或 'ETH' (自动分析日内和15分钟走势)", flush=True)
+        print("   - 单币种分析: 'BTC' 或 'ETH'", flush=True)
+        print("   - 多币种投资组合: 'BTC,ETH,SOL' (逗号分隔)", flush=True)
         print("   - 指定交易对: 'ETHUSDT 以太坊今天走势如何?'", flush=True)
-        print("   - 直接提问: '比特币适合长期持有吗?'", flush=True)
+        print("   - 直接提问: '当前市场适合投资吗?'", flush=True)
         print("   - 启动自动模式: python crypto_bot.py --auto", flush=True)
         print("   - 查看交易统计: 输入 'stats'", flush=True)
         print("   - 查看今日分析缓存: 输入 'cache'", flush=True)
@@ -2255,22 +2320,30 @@ def main():
                 continue
             
             if user_input:
-                # 解析输入，检查是否包含币种
-                parts = user_input.split(' ', 1)
-
-                # 检查是否是单独的代币名（如 BTC, ETH等）
-                if len(parts) == 1 and parts[0].upper() in ['BTC', 'ETH', 'XRP', 'BNB', 'ADA', 'SOL', 'DOGE', 'MATIC', 'DOT', 'AVAX', 'SHIB', 'LTC', 'UNI', 'LINK', 'TRX']:
-                    symbol = parts[0].upper() + 'USDT'
-                    question = f"{parts[0].upper()}日内走势如何？15分钟走势分析"
-                    bot.ask_claude_with_data(question, symbol)
-                elif len(parts) > 1 and parts[0].upper().endswith('USDT'):
-                    # 指定了完整交易对
-                    symbol = parts[0].upper()
-                    question = parts[1]
-                    bot.ask_claude_with_data(question, symbol)
+                # 解析输入，支持多币种分析
+                known_tokens = ['BTC', 'ETH', 'XRP', 'BNB', 'ADA', 'SOL', 'DOGE', 'MATIC', 'DOT', 'AVAX', 'SHIB', 'LTC', 'UNI', 'LINK', 'TRX']
+                
+                # 检查是否是多币种组合（用逗号分隔）
+                if ',' in user_input and all(token.strip().upper() in known_tokens for token in user_input.split(',')):
+                    tokens = [token.strip().upper() + 'USDT' for token in user_input.split(',')]
+                    question = f"分析 {', '.join([t.replace('USDT', '') for t in tokens])} 的投资组合配置"
+                    bot.ask_claude_with_data(question, tokens)
                 else:
-                    # 普通问题，使用默认币种
-                    bot.ask_claude_with_data(user_input)
+                    parts = user_input.split(' ', 1)
+                    
+                    # 检查是否是单独的代币名
+                    if len(parts) == 1 and parts[0].upper() in known_tokens:
+                        symbol = parts[0].upper() + 'USDT'
+                        question = f"{parts[0].upper()}技术面和基本面分析"
+                        bot.ask_claude_with_data(question, [symbol])
+                    elif len(parts) > 1 and parts[0].upper().endswith('USDT'):
+                        # 指定了完整交易对
+                        symbol = parts[0].upper()
+                        question = parts[1]
+                        bot.ask_claude_with_data(question, [symbol])
+                    else:
+                        # 普通问题，使用默认多币种分析
+                        bot.ask_claude_with_data(user_input, ['BTCUSDT', 'ETHUSDT'])
 
 if __name__ == "__main__":
     main()

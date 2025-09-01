@@ -516,16 +516,20 @@ class CryptoBot:
                 status = "✅ 已缓存" if cached_analysis else "❌ 未生成"
                 print(f"  {agent_name}: {status}", flush=True)
             
-            # 币种分析（检查常用币种）
+            # 币种分析（检查常用币种 - 基本面 + 币种首席分析师）
             common_symbols = ['BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'ADAUSDT', 'SOLUSDT']
-            print("💰 币种基本面分析:")
+            print("💰 币种分析:")
             for symbol in common_symbols:
-                cached_analysis = self.get_today_analysis(f'fundamental_analysis_{symbol}', '基本面分析师')
-                status = "✅ 已缓存" if cached_analysis else "❌ 未生成"
-                print(f"  {symbol.replace('USDT', '')}: {status}", flush=True)
+                fundamental_cached = self.get_today_analysis(f'fundamental_analysis_{symbol}', '基本面分析师')
+                chief_cached = self.get_today_analysis(f'coin_chief_analysis_{symbol}', f'{symbol}首席分析师')
+                
+                fund_status = "✅" if fundamental_cached else "❌"
+                chief_status = "✅" if chief_cached else "❌"
+                symbol_short = symbol.replace('USDT', '')
+                print(f"  {symbol_short}: 基本面{fund_status} | 首席分析师{chief_status}", flush=True)
                 
             # 研究报告综合
-            research_summary = self.get_today_analysis('research_summary', '研究部门首席分析师')
+            research_summary = self.get_today_analysis('research_summary', '研究部门总监')
             summary_status = "✅ 已缓存" if research_summary else "❌ 未生成"
             print(f"📋 研究部门综合报告: {summary_status}", flush=True)
                 
@@ -1974,7 +1978,7 @@ class CryptoBot:
                 status='completed'
             )
         
-        # 3. 各币种的技术面和基本面分析
+        # 3. 各币种的四维度分析 + 币种首席分析师
         for symbol in symbols:
             print(f"📈 [研究部门-技术分析师] 分析 {symbol}...", flush=True)
             
@@ -2005,9 +2009,16 @@ class CryptoBot:
                     status='completed'
                 )
             
+            # 每个币种的首席分析师整合四个维度
+            print(f"🎯 [研究部门-{symbol}首席分析师] 整合四维度分析...", flush=True)
+            coin_chief_analysis = self.generate_coin_chief_analysis(
+                symbol, kline_analysis, sentiment_analysis, fundamental_analysis, macro_analysis
+            )
+            
             research_results[symbol] = {
                 'technical': kline_analysis,
-                'fundamental': fundamental_analysis
+                'fundamental': fundamental_analysis,
+                'chief_analysis': coin_chief_analysis  # 每个币种的首席分析
             }
         
         # 4. 研究部门综合报告
@@ -2021,46 +2032,119 @@ class CryptoBot:
             'research_summary': research_summary
         }
     
+    def generate_coin_chief_analysis(self, symbol, technical_analysis, sentiment_analysis, fundamental_analysis, macro_analysis):
+        """生成单个币种的首席分析师报告"""
+        
+        coin_chief_prompt = f"""
+你是{symbol}首席分析师，请整合以下四个专业代理的分析报告，提供针对{symbol}的全面投资建议：
+
+=== 技术分析师报告 ===
+{technical_analysis}
+
+=== 市场分析师报告 ===
+{sentiment_analysis}
+
+=== 基本面分析师报告 ===
+{fundamental_analysis}
+
+=== 宏观分析师报告 ===
+{macro_analysis}
+
+=== 分析要求 ===
+请基于技术面、市场情绪、基本面和宏观面的综合分析，提供针对{symbol}的全面投资建议。
+注意平衡各方观点，给出客观专业的结论，重点关注：
+
+1. **各维度分析的一致性和分歧点**
+   - 技术面vs基本面的信号对比
+   - 短期情绪vs长期宏观趋势的冲突
+   - {symbol}特有的市场表现特征
+
+2. **短期和中长期的投资策略差异**
+   - 1-7天的短期交易机会
+   - 1-3个月的中期趋势判断
+   - 3-12个月的长期配置建议
+
+3. **风险因素的多维度评估**
+   - 技术风险：关键支撑阻力位
+   - 基本面风险：项目发展、监管政策
+   - 宏观风险：流动性、市场周期
+   - 情绪风险：FOMO、恐慌抛售
+
+4. **关键的市场转折点和信号**
+   - 技术指标的重要突破位
+   - 宏观数据的关键变化
+   - 市场情绪的极值反转信号
+   - 基本面的重大催化事件
+
+请提供具体、可操作的{symbol}投资建议，避免空泛的表述。
+"""
+        
+        coin_chief_analysis = self._call_claude_api(coin_chief_prompt, f"{symbol}首席分析师")
+        
+        # 保存币种首席分析
+        self.save_to_database(
+            data_type=f'coin_chief_analysis_{symbol}',
+            agent_name=f'{symbol}首席分析师',
+            symbol=symbol,
+            content=coin_chief_analysis,
+            summary=coin_chief_analysis[:50] if coin_chief_analysis else f'{symbol}首席分析',
+            status='completed'
+        )
+        
+        return coin_chief_analysis
+    
     def generate_research_summary(self, symbol_analyses, macro_analysis, sentiment_analysis):
         """生成研究部门综合报告"""
         symbols_list = list(symbol_analyses.keys())
         
-        # 构建研究报告
+        # 构建研究报告 - 基于各币种首席分析师的报告
         symbol_reports = ""
         for symbol, analyses in symbol_analyses.items():
-            symbol_reports += f"\n=== {symbol} 研究报告 ===\n"
-            symbol_reports += f"技术分析:\n{analyses['technical']}\n\n"
-            symbol_reports += f"基本面分析:\n{analyses['fundamental']}\n\n"
+            symbol_reports += f"\n=== {symbol} 首席分析师报告 ===\n"
+            symbol_reports += f"{analyses['chief_analysis']}\n\n"
         
         research_prompt = f"""
-你是华尔街研究部门的首席分析师，请基于团队的多币种研究结果，撰写综合研究报告。
+你是研究部门总监，请基于各币种首席分析师的报告，提供投资组合的综合建议：
 
-=== 宏观环境分析 ===
-{macro_analysis}
-
-=== 市场情绪分析 ===
-{sentiment_analysis}
-
-=== 各币种专项研究 ===
+=== 各币种首席分析师报告 ===
 {symbol_reports}
 
-请从研究部门的角度，提供以下内容：
-1. 当前市场环境的整体评估
-2. 各币种的投资价值排序和理由
-3. 不同币种之间的关联性分析
-4. 推荐的投资组合配置建议
-5. 关键风险点和机会点识别
-6. 后续重点关注的研究方向
+=== 整体市场环境参考 ===
+宏观环境: {macro_analysis}
+市场情绪: {sentiment_analysis}
 
-请以专业研究报告的形式输出，为交易部门提供决策支持。
+=== 分析要求 ===
+请基于各币种首席分析师的专业报告，提供投资组合层面的综合建议：
+
+1. **币种间的比较分析**
+   - 各币种投资机会的排序和权重建议
+   - 不同币种间的相关性和配置策略
+   - 风险分散的最优组合方案
+
+2. **时间维度的配置策略**
+   - 短期(1-7天)的主要关注币种
+   - 中期(1-3月)的核心配置建议
+   - 长期(3-12月)的战略布局方向
+
+3. **风险管控建议**
+   - 基于各币种分析的整体风险评估
+   - 关键风险点的预警和应对策略
+   - 投资组合的止损和止盈设置
+
+4. **市场时机判断**
+   - 当前市场阶段的整体判断
+   - 关键转折点的识别和应对
+   - 资金配置的优先级排序
+
+请提供具体的投资组合建议，包括币种选择、权重分配、进出场时机等。
 """
         
-        research_summary = self._call_claude_api(research_prompt, "研究部门首席分析师")
+        research_summary = self._call_claude_api(research_prompt, "研究部门总监")
         
         # 保存研究报告
         self.save_to_database(
             data_type='research_summary',
-            agent_name='研究部门首席分析师',
+            agent_name='研究部门总监',
             content=research_summary,
             summary=research_summary[:50] if research_summary else '多币种研究综合报告',
             status='completed'
@@ -2145,18 +2229,6 @@ class CryptoBot:
 
 === 研究部门综合报告 ===
 {research_results['research_summary']}
-
-=== {primary_symbol_name} 专项技术分析 ===
-{research_results['symbol_analyses'].get(primary_symbol, {}).get('technical', '无技术分析')}
-
-=== {primary_symbol_name} 专项基本面分析 ===
-{research_results['symbol_analyses'].get(primary_symbol, {}).get('fundamental', '无基本面分析')}
-
-=== 宏观环境 ===
-{research_results['macro_analysis']}
-
-=== 市场情绪 ===
-{research_results['sentiment_analysis']}
 
 === 可用交易工具 ===
 {self.get_trading_tools_description()}

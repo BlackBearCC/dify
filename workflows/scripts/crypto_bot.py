@@ -169,6 +169,7 @@ class Crypto24hMonitor:
         # 市场数据缓存
         self.market_data_cache = {}
         self.last_analysis_time = {}
+        self.last_urgent_analysis_time = {}  # 记录每个币种最后一次紧急分析时间
         self.trigger_events = []
         
         # 获取监控币种（添加安全检查）
@@ -279,7 +280,7 @@ class Crypto24hMonitor:
                 'RSI': {'周期': 14, '超买线': 70, '超卖线': 30, '极值超买': 80, '极值超卖': 20},
                 'MACD': {'快线EMA': 12, '慢线EMA': 26, '信号线': 9}
             },
-            '触发条件': {'常规分析间隔': 600, '特殊触发': {'RSI极值检测': {'启用': True, '检测周期': 90}}},
+            '触发条件': {'常规分析间隔': 900, '特殊触发': {'RSI极值检测': {'启用': True, '检测周期': 90}}},
             'API配置': {'Claude': {'模型': 'claude-sonnet-4-20250514'}}
         }
 
@@ -426,7 +427,8 @@ class Crypto24hMonitor:
         print("🚀 24小时监控系统已启动", flush=True)
         print(f"📊 监控币种: {', '.join([s.replace('USDT', '') for s in self.all_symbols])}", flush=True)
         print(f"⏱️ K线获取间隔: {self.config.get('K线数据配置', {}).get('获取间隔', 60)}秒", flush=True)
-        print(f"🔄 常规分析间隔: {self.config.get('触发条件', {}).get('常规分析间隔', 600)}秒", flush=True)
+        print(f"🔄 常规分析间隔: {self.config.get('触发条件', {}).get('常规分析间隔', 900)}秒", flush=True)
+        print(f"⚡ 紧急分析冷却: {self.config.get('触发条件', {}).get('常规分析间隔', 900)}秒（每个币种独立）", flush=True)
         
     def stop_monitoring(self):
         """停止监控"""
@@ -487,11 +489,10 @@ class Crypto24hMonitor:
                             'raw_klines': kline_data
                         }
                         
-                        # 简化的输出，避免过于频繁
-                        if current_time % 300 == 0:  # 每5分钟输出一次状态
-                            rsi_str = f"{market_data.rsi: >5.1f}" if market_data.rsi else " N/A "
-                            macd_str = f"{market_data.macd: >7.4f}" if market_data.macd else "  N/A  "
-                            print(f"📈 {symbol.replace('USDT', ''): <8} ${market_data.price: >8.2f} RSI:{rsi_str} MACD:{macd_str}", flush=True)
+                        # 每分钟获取数据时都打印币种和价格
+                        rsi_str = f"{market_data.rsi: >5.1f}" if market_data.rsi else " N/A "
+                        macd_str = f"{market_data.macd: >7.4f}" if market_data.macd else "  N/A  "
+                        print(f"📈 {symbol.replace('USDT', ''): <8} ${market_data.price: >8.2f} RSI:{rsi_str} MACD:{macd_str}", flush=True)
                             
                 except Exception as e:
                     print(f"❌ 获取{symbol}数据失败: {e}")
@@ -691,8 +692,23 @@ class Crypto24hMonitor:
                 analysis_thread.start()
                 
     def _trigger_immediate_analysis(self, symbol: str, reason: str):
-        """立即触发分析（特殊情况）"""
+        """立即触发分析（特殊情况）- 在15分钟间隔内每个币种只触发一次"""
+        current_time = int(time.time())
+        analysis_interval = self.config.get('触发条件', {}).get('常规分析间隔', 900)  # 默认15分钟
+        
+        # 检查该币种是否在间隔内已经进行过紧急分析
+        last_urgent_time = self.last_urgent_analysis_time.get(symbol, 0)
+        time_since_last_urgent = current_time - last_urgent_time
+        
+        if time_since_last_urgent < analysis_interval:
+            remaining_time = analysis_interval - time_since_last_urgent
+            print(f"⏳ {symbol.replace('USDT', '')} 紧急分析冷却中 - {reason} (剩余{remaining_time}秒)", flush=True)
+            return
+        
         print(f"⚡ 立即分析触发: {symbol.replace('USDT', '')} - {reason}", flush=True)
+        
+        # 更新紧急分析时间
+        self.last_urgent_analysis_time[symbol] = current_time
         
         # 在新线程中执行，避免阻塞监控
         analysis_thread = threading.Thread(

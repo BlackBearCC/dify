@@ -31,7 +31,7 @@ from datetime import datetime, timedelta
 from scipy.signal import find_peaks
 import uuid
 from dataclasses import dataclass
-from llm_client import LLMClient, LLMProvider, create_claude_client, create_doubao_client, create_kimi_client, create_deepseek_client
+from llm_client import LLMClient, LLMProvider, create_claude_client, create_doubao_client, create_deepseek_client
 
 @dataclass
 class MarketData:
@@ -116,9 +116,8 @@ class Crypto24hMonitor:
         # 加载配置文件
         self.config = self.load_config(config_file)
         
-        # LLM客户端配置
-        self.llm_client = self._init_llm_client()
-        self.backup_llm_client = self._init_backup_llm_client()
+        # LLM客户端缓存
+        self.llm_clients = {}
         
         # 保持向后兼容的Claude配置
         self.claude_api_key = os.getenv('CLAUDE_API_KEY')
@@ -210,6 +209,67 @@ class Crypto24hMonitor:
             print(f"❌ 配置文件加载失败: {e}")
             return self._get_default_config()
     
+    def _get_llm_client_for_agent(self, agent_name: str) -> Optional[LLMClient]:
+        """为指定分析师获取专用的LLM客户端"""
+        # 如果已缓存，直接返回
+        if agent_name in self.llm_clients:
+            return self.llm_clients[agent_name]
+        
+        try:
+            # 获取分析师专用配置
+            analyst_configs = self.config.get('API配置', {}).get('分析师模型', {})
+            
+            # 处理不同的分析师名称格式
+            config_key = agent_name
+            if "首席分析师" in agent_name and agent_name != "首席分析师":
+                config_key = "首席分析师"  # BTCUSDT首席分析师 -> 首席分析师
+            
+            agent_config = analyst_configs.get(config_key)
+            if not agent_config:
+                print(f"⚠️ 未找到{agent_name}的模型配置，使用默认配置")
+                # 使用默认配置
+                agent_config = {
+                    '提供商': 'doubao',
+                    '模型': 'doubao-1.6',
+                    '最大令牌': 1000,
+                    '温度': 0.7
+                }
+            
+            provider = agent_config.get('提供商', 'doubao').lower()
+            model = agent_config.get('模型', 'doubao-1.6')
+            
+            # 获取API密钥
+            if provider == 'claude':
+                api_key = os.getenv('CLAUDE_API_KEY')
+                base_url = os.getenv('CLAUDE_BASE_URL', 'https://clubcdn.383338.xyz')
+            else:  # doubao, deepseek都使用豆包平台
+                api_key = os.getenv('DOUBAO_API_KEY', 'b633a622-b5d0-4f16-a8a9-616239cf15d1')
+                base_url = os.getenv('DOUBAO_BASE_URL', 'https://ark.cn-beijing.volces.com/api/v3')
+            
+            if not api_key:
+                print(f"❌ 未配置{provider.upper()} API密钥")
+                return None
+            
+            # 创建客户端
+            if provider == 'claude':
+                client = create_claude_client(api_key, model, base_url)
+            elif provider == 'doubao':
+                client = create_doubao_client(api_key, model, base_url)
+            elif provider == 'deepseek':
+                client = create_deepseek_client(api_key, model, base_url)
+            else:
+                print(f"❌ 不支持的提供商: {provider}")
+                return None
+            
+            # 缓存客户端
+            self.llm_clients[agent_name] = client
+            print(f"✅ {agent_name}专用模型: {provider} - {model}")
+            return client
+            
+        except Exception as e:
+            print(f"❌ 创建{agent_name}LLM客户端失败: {e}")
+            return None
+
     def _get_default_config(self) -> dict:
         return {
             '系统配置': {'名称': '加密货币监控系统', '运行模式': '持续监控'},
@@ -1721,13 +1781,8 @@ class Crypto24hMonitor:
                     print(f"🔧 使用配置杠杆: {configured_leverage}x (LLM建议: {leverage}x)", flush=True)
                     leverage = configured_leverage
                 
-                # 检查保证金并调整杠杆（解决-2028错误）
+                # 设置杠杆
                 if leverage > 1:
-                    adjusted_leverage = self._get_safe_leverage(symbol, quantity, leverage)
-                    if adjusted_leverage != leverage:
-                        print(f"💡 杠杆从 {leverage}x 调整为 {adjusted_leverage}x（基于可用保证金）", flush=True)
-                        leverage = adjusted_leverage
-                    
                     lev_result = self.set_leverage(symbol, leverage)
                     results.append({"action": "SET_LEVERAGE", "result": lev_result})
                 
@@ -1933,9 +1988,45 @@ class Crypto24hMonitor:
 }}
 """
 
-    def _call_claude_api(self, prompt: str, agent_name: str) -> str:
-        """调用Claude API的通用方法"""
-        print(f"🤖 [{agent_name}] 调用模型: {self.claude_model}", flush=True)
+    def _call_llm_api(self, prompt: str, agent_name: str) -> str:
+        """调用LLM API的通用方法，为每个分析师使用专用模型"""
+        # 获取分析师专用客户端
+        client = self._get_llm_client_for_agent(agent_name)
+        if not client:
+            return f"❌ [{agent_name}] 无法创建LLM客户端"
+        
+        # 获取分析师专用配置
+        analyst_configs = self.config.get('API配置', {}).get('分析师模型', {})
+        config_key = agent_name
+        if "首席分析师" in agent_name and agent_name != "首席分析师":
+            config_key = "首席分析师"
+            
+        agent_config = analyst_configs.get(config_key, {})
+        max_tokens = agent_config.get('最大令牌', 1000)
+        temperature = agent_config.get('温度', 0.7)
+        
+        # 获取通用配置
+        common_config = self.config.get('API配置', {}).get('通用设置', {})
+        stream = common_config.get('流式输出', True)
+        
+        try:
+            response = client.call(
+                prompt=prompt,
+                agent_name=agent_name,
+                max_tokens=max_tokens,
+                temperature=temperature,
+                stream=stream
+            )
+            return response
+            
+        except Exception as e:
+            error_msg = f"❌ [{agent_name}] LLM调用失败: {e}"
+            print(error_msg)
+            return error_msg
+    
+    def _call_claude_api_fallback(self, prompt: str, agent_name: str) -> str:
+        """回退的Claude API调用方法（向后兼容）"""
+        print(f"🤖 [{agent_name}] 回退调用Claude模型: {self.claude_model}", flush=True)
 
         if not self.claude_api_key:
             error_msg = f"❌ [{agent_name}] 未配置Claude API密钥"
@@ -1959,7 +2050,7 @@ class Crypto24hMonitor:
             response = requests.post(url, json=payload, headers=headers, timeout=60, stream=True)
 
             if response.status_code != 200:
-                error_msg = f"❌ [{agent_name}] API请求失败: {response.status_code} - {response.text}"
+                error_msg = f"❌ [{agent_name}] Claude API请求失败: {response.status_code} - {response.text}"
                 print(error_msg)
                 return error_msg
 
@@ -1985,9 +2076,7 @@ class Crypto24hMonitor:
                                 if data.get('type') == 'content_block_delta':
                                     if 'delta' in data and data['delta'].get('type') == 'text_delta':
                                         chunk_text = data['delta']['text']
-                                        # 实时输出：直接输出整个chunk，确保立即显示
                                         print(chunk_text, end='', flush=True)
-                                        # 立即刷新标准输出缓冲区
                                         sys.stdout.flush()
                                         full_response += chunk_text
                                 elif data.get('type') == 'content_block_start':
@@ -2009,16 +2098,8 @@ class Crypto24hMonitor:
 
             return full_response.strip()
 
-        except requests.exceptions.Timeout:
-            error_msg = f"❌ [{agent_name}] 请求超时"
-            print(error_msg)
-            return error_msg
-        except requests.exceptions.RequestException as e:
-            error_msg = f"❌ [{agent_name}] 网络请求错误: {e}"
-            print(error_msg)
-            return error_msg
         except Exception as e:
-            error_msg = f"❌ [{agent_name}] 未知错误: {e}"
+            error_msg = f"❌ [{agent_name}] Claude API调用错误: {e}"
             print(error_msg)
             return error_msg
 
@@ -2087,7 +2168,7 @@ class Crypto24hMonitor:
 
 请保持简洁专业，重点关注15分钟级别的短期走势。
 """
-            return self._call_claude_api(prompt, "技术分析师")
+            return self._call_llm_api(prompt, "技术分析师")
 
         except Exception as e:
             error_msg = f"❌ [技术分析师] 数据处理错误: {e}"
@@ -2239,7 +2320,7 @@ class Crypto24hMonitor:
 
 请提供客观专业的市场情绪评估，重点关注多个指标之间的相互验证。
 """
-            return self._call_claude_api(prompt, "市场分析师")
+            return self._call_llm_api(prompt, "市场分析师")
 
         except Exception as e:
             error_msg = f"❌ [市场分析师] 情绪分析失败: {e}"
@@ -2264,7 +2345,7 @@ class Crypto24hMonitor:
 
 保持理性客观的分析视角。
 """
-        return self._call_claude_api(prompt, "基本面分析师")
+        return self._call_llm_api(prompt, "基本面分析师")
 
     def analyze_macro_data(self) -> str:
         """宏观数据分析代理 - 分析ETF流向、美股指数、黄金价格对加密货币市场的影响"""
@@ -2344,7 +2425,7 @@ class Crypto24hMonitor:
 
 请提供客观专业的宏观经济视角分析，重点关注传统金融市场与加密市场的联动性。
 """
-            return self._call_claude_api(prompt, "宏观分析师")
+            return self._call_llm_api(prompt, "宏观分析师")
             
         except Exception as e:
             error_msg = f"❌ [宏观分析师] 分析失败: {e}"
@@ -2501,7 +2582,7 @@ class Crypto24hMonitor:
 请提供具体、可操作的{symbol}投资建议，避免空泛的表述。
 """
         
-        coin_chief_analysis = self._call_claude_api(coin_chief_prompt, f"{symbol}首席分析师")
+        coin_chief_analysis = self._call_llm_api(coin_chief_prompt, f"{symbol}首席分析师")
         
         # 保存币种首席分析
         self.save_to_database(
@@ -2561,7 +2642,7 @@ class Crypto24hMonitor:
 请提供具体的投资组合建议，包括币种选择、权重分配、进出场时机等。
 """
         
-        research_summary = self._call_claude_api(research_prompt, "研究部门总监")
+        research_summary = self._call_llm_api(research_prompt, "研究部门总监")
         
         # 保存研究报告
         self.save_to_database(
@@ -2697,7 +2778,7 @@ class Crypto24hMonitor:
 请基于研究部门的综合分析给出明确可执行的JSON决策。
 """
 
-        trading_decision = self._call_claude_api(trading_prompt, "永续交易员")
+        trading_decision = self._call_llm_api(trading_prompt, "永续交易员")
         print("\n" + "="*80)
         
         # 解析并执行交易决策

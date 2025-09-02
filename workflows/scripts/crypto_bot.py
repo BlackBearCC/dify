@@ -2225,7 +2225,7 @@ class CryptoBot:
         primary_symbol_name = primary_symbol.replace('USDT', '')
         
         trading_prompt = f"""
-你是专业永续交易员，基于研究部门的多币种分析报告，重点针对 {primary_symbol} 制定合约交易策略：
+你是专业交易员，基于研究部门的多币种分析报告，重点针对 {primary_symbol} 制定合约交易策略：
 
 === 研究部门综合报告 ===
 {research_results['research_summary']}
@@ -2246,7 +2246,6 @@ class CryptoBot:
 === 交易参数要求 ===
 - 交易标的: {primary_symbol}
 - 完全自主决策: 你可以根据分析结果自主决定所有交易参数
-- 合约交易风格: 专业，适合永续合约交易
 - 输出格式: 必须是JSON格式，以便自动执行
 
 请输出以下JSON格式的交易决策：
@@ -2267,7 +2266,7 @@ class CryptoBot:
 注意：
 1. quantity必须是具体的数量（如0.001 BTC）
 2. 价格必须是具体数值（如95000表示95000 USDT）
-3. leverage杠杆倍数由你自主决定，适合永续合约交易
+3. leverage杠杆倍数由你自主决定
 4. confidence是置信度百分比（0-100）
 5. reasoning必须包含研究部门各维度分析的综合考虑
 6. 参考账户余额状况和历史交易表现

@@ -490,9 +490,7 @@ class Crypto24hMonitor:
                         }
                         
                         # 每分钟获取数据时都打印币种和价格
-                        rsi_str = f"{market_data.rsi: >5.1f}" if market_data.rsi else " N/A "
-                        macd_str = f"{market_data.macd: >7.4f}" if market_data.macd else "  N/A  "
-                        print(f"📈 {symbol.replace('USDT', ''): <8} ${market_data.price: >8.2f} RSI:{rsi_str} MACD:{macd_str}", flush=True)
+                        print(f"📊 {symbol.replace('USDT', '')}：${market_data.price:.2f}", flush=True)
                             
                 except Exception as e:
                     print(f"❌ 获取{symbol}数据失败: {e}")

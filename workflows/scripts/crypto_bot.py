@@ -31,6 +31,7 @@ from datetime import datetime, timedelta
 from scipy.signal import find_peaks
 import uuid
 from dataclasses import dataclass
+from llm_client import LLMClient, LLMProvider, create_claude_client, create_doubao_client, create_kimi_client, create_deepseek_client
 
 @dataclass
 class MarketData:
@@ -115,10 +116,14 @@ class Crypto24hMonitor:
         # 加载配置文件
         self.config = self.load_config(config_file)
         
-        # Claude API配置
+        # LLM客户端配置
+        self.llm_client = self._init_llm_client()
+        self.backup_llm_client = self._init_backup_llm_client()
+        
+        # 保持向后兼容的Claude配置
         self.claude_api_key = os.getenv('CLAUDE_API_KEY')
         self.claude_base_url = os.getenv('CLAUDE_BASE_URL', 'https://clubcdn.383338.xyz')
-        self.claude_model = self.config['API配置']['Claude']['模型']
+        self.claude_model = self.config.get('API配置', {}).get('Claude', {}).get('模型', 'claude-sonnet-4-20250514')
 
         # CoinGecko API配置
         self.coingecko_api_key = "CG-SJ8bSJ7VmR2KH16w3UtgcYPa"
@@ -167,14 +172,28 @@ class Crypto24hMonitor:
         self.last_analysis_time = {}
         self.trigger_events = []
         
-        # 获取监控币种
-        self.primary_symbols = self.config['监控币种']['主要币种']
-        self.secondary_symbols = self.config['监控币种']['次要币种']
+        # 获取监控币种（添加安全检查）
+        self.primary_symbols = self.config.get('监控币种', {}).get('主要币种', ['BTCUSDT'])
+        self.secondary_symbols = self.config.get('监控币种', {}).get('次要币种', [])
+        
+        # 确保都是列表类型
+        if not isinstance(self.primary_symbols, list):
+            self.primary_symbols = ['BTCUSDT']
+        if not isinstance(self.secondary_symbols, list):
+            self.secondary_symbols = []
+            
         self.all_symbols = self.primary_symbols + self.secondary_symbols
         
-        print(f"🚀 {self.config['系统配置']['名称']}已启动", flush=True)
+        print(f"🚀 {self.config.get('系统配置', {}).get('名称', '加密货币监控系统')}已启动", flush=True)
         print(f"📊 主要监控币种: {', '.join([s.replace('USDT', '') for s in self.primary_symbols])}", flush=True)
         print(f"📈 次要监控币种: {', '.join([s.replace('USDT', '') for s in self.secondary_symbols])}", flush=True)
+        
+        # 显示配置的杠杆信息
+        print("⚖️ 配置的杠杆倍数:", flush=True)
+        leverage_config = self.config.get('风险管理', {}).get('币种杠杆', {})
+        for symbol in self.all_symbols:
+            leverage = self.get_symbol_leverage(symbol)
+            print(f"   {symbol.replace('USDT', '')}: {leverage}x", flush=True)
 
     def load_config(self, config_file: str) -> dict:
         try:
@@ -214,6 +233,18 @@ class Crypto24hMonitor:
             print("⚠️ Binance功能不可用：未配置API密钥")
             return
 
+        # 调试信息：显示API配置状态
+        print("🔍 Binance API配置检查:")
+        print(f"   API Key: {'已配置' if self.binance_api_key else '未配置'} ({self.binance_api_key[:8]}...{self.binance_api_key[-4:] if self.binance_api_key else ''})")
+        print(f"   API Secret: {'已配置' if self.binance_api_secret else '未配置'} ({self.binance_api_secret[:8]}...{self.binance_api_secret[-4:] if self.binance_api_secret else ''})")
+        print(f"   测试网模式: {self.binance_testnet}")
+        print(f"   API端点: {'https://testnet.binance.vision' if self.binance_testnet else 'https://api.binance.com'}")
+        print(f"   API类型: {'期货交易API' if not self.binance_testnet else '测试网期货API'}")
+        print("💡 如需使用跟单API，请确保:")
+        print("   - 已创建带单项目")
+        print("   - API密钥来自跟单项目设置")
+        print("   - 启用了期货交易权限")
+
         try:
             self.binance_client = Client(
                 self.binance_api_key,
@@ -223,8 +254,30 @@ class Crypto24hMonitor:
             # 测试连接
             self.binance_client.ping()
             print("✅ Binance客户端初始化成功", flush=True)
+            
+            # 测试账户权限
+            try:
+                account_info = self.binance_client.get_account()
+                print(f"✅ 账户权限验证成功 - 可交易权限: {account_info.get('canTrade', False)}")
+                
+                # 测试期货权限
+                try:
+                    futures_account = self.binance_client.futures_account()
+                    print("✅ 期货账户权限验证成功")
+                except Exception as futures_error:
+                    print(f"❌ 期货权限验证失败: {futures_error}")
+                    print("💡 建议：确保API密钥启用了期货交易权限")
+                    
+            except Exception as account_error:
+                print(f"❌ 账户权限验证失败: {account_error}")
+                
         except Exception as e:
             print(f"❌ Binance客户端初始化失败: {e}")
+            print("💡 常见解决方案:")
+            print("   1. 检查API密钥是否正确")
+            print("   2. 确认API权限包含期货交易")
+            print("   3. 检查IP白名单设置")
+            print("   4. 验证测试网/主网配置匹配")
             self.binance_client = None
 
     def init_database(self):
@@ -312,8 +365,8 @@ class Crypto24hMonitor:
         
         print("🚀 24小时监控系统已启动", flush=True)
         print(f"📊 监控币种: {', '.join([s.replace('USDT', '') for s in self.all_symbols])}", flush=True)
-        print(f"⏱️ K线获取间隔: {self.config['K线数据配置']['获取间隔']}秒", flush=True)
-        print(f"🔄 常规分析间隔: {self.config['触发条件']['常规分析间隔']}秒", flush=True)
+        print(f"⏱️ K线获取间隔: {self.config.get('K线数据配置', {}).get('获取间隔', 60)}秒", flush=True)
+        print(f"🔄 常规分析间隔: {self.config.get('触发条件', {}).get('常规分析间隔', 600)}秒", flush=True)
         
     def stop_monitoring(self):
         """停止监控"""
@@ -348,7 +401,7 @@ class Crypto24hMonitor:
     def _update_market_data(self):
         """更新市场数据（1分钟K线）"""
         current_time = int(time.time())
-        interval = self.config['K线数据配置']['获取间隔']
+        interval = self.config.get('K线数据配置', {}).get('获取间隔', 60)
         
         for symbol in self.all_symbols:
             # 检查是否需要更新数据
@@ -359,8 +412,8 @@ class Crypto24hMonitor:
                     # 获取K线数据
                     kline_data = self.get_crypto_data(
                         symbol, 
-                        self.config['K线数据配置']['默认时间周期'], 
-                        self.config['K线数据配置']['历史数据长度']
+                        self.config.get('K线数据配置', {}).get('默认时间周期', '15m'), 
+                        self.config.get('K线数据配置', {}).get('历史数据长度', 200)
                     )
                     
                     if kline_data:
@@ -389,12 +442,15 @@ class Crypto24hMonitor:
             df = pd.DataFrame(kline_data)
             
             # 计算RSI
-            rsi_period = self.config['技术指标']['RSI']['周期']
+            rsi_period = self.config.get('技术指标', {}).get('RSI', {}).get('周期', 14)
             rsi = self._calculate_rsi(df['close'], rsi_period).iloc[-1] if len(df) >= rsi_period else None
             
             # 计算MACD
-            macd_config = self.config['技术指标']['MACD']
-            macd, _ = self._calculate_macd(df['close'], macd_config['快线EMA'], macd_config['慢线EMA'], macd_config['信号线'])
+            macd_config = self.config.get('技术指标', {}).get('MACD', {})
+            macd, _ = self._calculate_macd(df['close'], 
+                                         macd_config.get('快线EMA', 12), 
+                                         macd_config.get('慢线EMA', 26), 
+                                         macd_config.get('信号线', 9))
             macd_value = macd.iloc[-1] if len(macd) > 0 else None
             
             # 返回市场数据结构
@@ -422,18 +478,35 @@ class Crypto24hMonitor:
         """检查特殊触发条件"""
         current_time = int(time.time())
         
+        # 清理过期的触发事件（超过5分钟的事件）
+        self._cleanup_old_trigger_events(current_time)
+        
         # 检查RSI极值触发
-        if self.config['触发条件']['特殊触发']['RSI极值检测']['启用']:
+        if self.config.get('触发条件', {}).get('特殊触发', {}).get('RSI极值检测', {}).get('启用', True):
             self._check_rsi_extreme_triggers(current_time)
             
         # 检查止盈止损触发  
         self._check_stop_triggers(current_time)
         
+    def _cleanup_old_trigger_events(self, current_time: int):
+        """清理超过5分钟的旧触发事件，防止内存泄漏"""
+        cleanup_threshold = 300  # 5分钟
+        initial_count = len(self.trigger_events)
+        
+        self.trigger_events = [
+            event for event in self.trigger_events 
+            if current_time - event.trigger_time < cleanup_threshold
+        ]
+        
+        cleaned_count = initial_count - len(self.trigger_events)
+        if cleaned_count > 0:
+            print(f"🧹 清理了 {cleaned_count} 个过期触发事件", flush=True)
+        
     def _check_rsi_extreme_triggers(self, current_time: int):
-        """检查RSI极值触发（1.5分钟内）"""
-        detection_period = self.config['触发条件']['特殊触发']['RSI极值检测']['检测周期']
-        extreme_overbought = self.config['技术指标']['RSI']['极值超买']
-        extreme_oversold = self.config['技术指标']['RSI']['极值超卖']
+        """检查RSI极值触发（确保在检测周期内只触发一次）"""
+        detection_period = self.config.get('触发条件', {}).get('特殊触发', {}).get('RSI极值检测', {}).get('检测周期', 90)
+        extreme_overbought = self.config.get('技术指标', {}).get('RSI', {}).get('极值超买', 80)
+        extreme_oversold = self.config.get('技术指标', {}).get('RSI', {}).get('极值超卖', 20)
         
         for symbol in self.primary_symbols:  # 只检查主要币种
             market_data = self.market_data_cache.get(symbol, {}).get('data')
@@ -452,16 +525,17 @@ class Crypto24hMonitor:
                 trigger_type = 'extreme_oversold'
                 
             if triggered:
-                # 检查是否在检测周期内已经触发过
+                # 检查是否在检测周期内已经触发过相同类型的极值
                 recent_trigger = any(
                     event.symbol == symbol and 
                     event.event_type == 'rsi_extreme' and 
+                    event.details.get('trigger_type') == trigger_type and  # 检查相同的极值类型
                     current_time - event.trigger_time < detection_period
                     for event in self.trigger_events
                 )
                 
                 if not recent_trigger:
-                    print(f"🚨 RSI极值触发: {symbol.replace('USDT', '')} RSI={market_data.rsi:.1f} ({trigger_type})", flush=True)
+                    print(f"🚨 RSI极值触发: {symbol.replace('USDT', '')} RSI={market_data.rsi:.1f} ({trigger_type}) - 周期内首次触发", flush=True)
                     
                     # 记录触发事件
                     self.trigger_events.append(TriggerEvent(
@@ -473,6 +547,13 @@ class Crypto24hMonitor:
                     
                     # 立即触发分析
                     self._trigger_immediate_analysis(symbol, f"RSI极值触发 ({trigger_type})")
+                else:
+                    # 在周期内已触发过，只记录但不执行分析
+                    remaining_time = detection_period - (current_time - next(
+                        event.trigger_time for event in self.trigger_events 
+                        if event.symbol == symbol and event.event_type == 'rsi_extreme' and event.details.get('trigger_type') == trigger_type
+                    ))
+                    print(f"⏳ RSI极值 {symbol.replace('USDT', '')} {trigger_type} 已在周期内触发，剩余冷却时间: {remaining_time}秒", flush=True)
                     
     def _check_stop_triggers(self, current_time: int):
         """检查止盈止损触发"""
@@ -530,7 +611,7 @@ class Crypto24hMonitor:
     def _check_regular_analysis(self):
         """检查常规分析时机"""
         current_time = int(time.time())
-        analysis_interval = self.config['触发条件']['常规分析间隔']
+        analysis_interval = self.config.get('触发条件', {}).get('常规分析间隔', 600)
         
         for symbol in self.primary_symbols:
             last_analysis = self.last_analysis_time.get(symbol, 0)
@@ -1634,8 +1715,19 @@ class Crypto24hMonitor:
                 results.append({"action": "CLOSE", "result": result})
                 
             elif action in ['BUY', 'SELL']:
-                # 设置杠杆 - 由LLM决定，不做限制
+                # 使用配置文件中的预设杠杆（覆盖LLM的决策）
+                configured_leverage = self.get_symbol_leverage(symbol)
+                if configured_leverage != leverage:
+                    print(f"🔧 使用配置杠杆: {configured_leverage}x (LLM建议: {leverage}x)", flush=True)
+                    leverage = configured_leverage
+                
+                # 检查保证金并调整杠杆（解决-2028错误）
                 if leverage > 1:
+                    adjusted_leverage = self._get_safe_leverage(symbol, quantity, leverage)
+                    if adjusted_leverage != leverage:
+                        print(f"💡 杠杆从 {leverage}x 调整为 {adjusted_leverage}x（基于可用保证金）", flush=True)
+                        leverage = adjusted_leverage
+                    
                     lev_result = self.set_leverage(symbol, leverage)
                     results.append({"action": "SET_LEVERAGE", "result": lev_result})
                 
@@ -1737,6 +1829,21 @@ class Crypto24hMonitor:
             print(f"⚠️ 风险检查出错: {e}")
             return {"allowed": True, "reason": "风险检查异常，允许交易"}
 
+    def get_symbol_leverage(self, symbol: str) -> int:
+        """获取指定币种的预设杠杆倍数"""
+        leverage_config = self.config.get('风险管理', {}).get('币种杠杆', {})
+        
+        # 首先查找具体币种的杠杆设置
+        symbol_leverage = leverage_config.get(symbol)
+        if symbol_leverage:
+            print(f"📊 {symbol} 使用预设杠杆: {symbol_leverage}x", flush=True)
+            return int(symbol_leverage)
+        
+        # 如果没有找到，使用币种杠杆配置中的默认杠杆
+        default_leverage = leverage_config.get('默认杠杆', 5)
+        print(f"📊 {symbol} 使用默认杠杆: {default_leverage}x", flush=True)
+        return int(default_leverage)
+
     def get_safe_trading_limits(self):
         """获取安全交易限额建议"""
         try:
@@ -1791,7 +1898,15 @@ class Crypto24hMonitor:
 
     def get_trading_tools_description(self):
         """返回交易工具的描述，供LLM了解可用功能"""
-        return """
+        # 获取配置的杠杆信息
+        leverage_config = self.config.get('风险管理', {}).get('币种杠杆', {})
+        leverage_info = "配置的币种杠杆:\n"
+        for symbol, lev in leverage_config.items():
+            if symbol != '默认杠杆':
+                leverage_info += f"  - {symbol}: {lev}x\n"
+        leverage_info += f"  - 其他币种默认: {leverage_config.get('默认杠杆', 5)}x\n"
+        
+        return f"""
 可用的交易工具：
 1. get_account_balance() - 查询账户余额
 2. get_current_positions() - 查询当前持仓
@@ -1801,15 +1916,21 @@ class Crypto24hMonitor:
 6. close_position(symbol) - 平仓
 7. execute_trading_decision(decision_data) - 执行完整交易决策
 
+{leverage_info}
+
+⚠️ 重要说明：
+- 杠杆倍数由配置文件预设，系统会自动使用配置的杠杆，无需在决策中指定
+- 系统会根据可用保证金自动调整杠杆以确保交易成功
+
 交易决策格式：
-{
+{{
     "action": "BUY/SELL/HOLD/CLOSE",
     "symbol": "BTCUSDT", 
     "quantity": 0.001,
-    "leverage": 10,
+    "leverage": 10,  // 此值会被配置文件中的预设值覆盖
     "stop_loss": 95000,
     "take_profit": 105000
-}
+}}
 """
 
     def _call_claude_api(self, prompt: str, agent_name: str) -> str:
@@ -2456,7 +2577,7 @@ class Crypto24hMonitor:
     def ask_claude_with_data(self, question: str, symbols=None) -> str:
         """华尔街式多币种分析架构 - 研究部门 + 交易部门"""
         if symbols is None:
-            symbols = ["BTCUSDT"]  # 默认分析BTC
+            symbols = self.primary_symbols  # 使用配置文件中的主要币种
         elif isinstance(symbols, str):
             symbols = [symbols]  # 单个币种转为列表
             
@@ -2649,123 +2770,27 @@ class Crypto24hMonitor:
         return trading_decision
 
 def main():
+    """主程序：启动24小时自动监控系统"""
+    print("🚀 加密货币24小时自动监控系统启动中...", flush=True)
+    
+    # 创建监控实例
     monitor = Crypto24hMonitor()
-
-    if len(sys.argv) > 1:
-        # 检查是否要启动自动调度器
-        if sys.argv[1] == '--auto' or sys.argv[1] == '-a':
-            print("🚀 启动自动调度模式", flush=True)
-            monitor.start_monitoring()
-            try:
-                # 保持程序运行
-                while monitor.monitoring:
-                    time.sleep(10)  # 每10秒检查一次监控状态
-            except KeyboardInterrupt:
-                print("\n🛑 收到中断信号，正在停止...", flush=True)
-                monitor.stop_monitoring()
-                print("👋 程序已退出", flush=True)
-                return
+    
+    # 直接启动24小时监控
+    monitor.start_monitoring()
+    
+    try:
+        print("✅ 系统已进入24小时自动监控模式", flush=True)
+        print("📊 按 Ctrl+C 停止监控系统", flush=True)
         
-        # 命令行模式 - 支持多币种分析
-        if len(sys.argv) == 2:
-            # 只有一个参数，检查是否是代币名或组合
-            arg = sys.argv[1].upper()
-            known_tokens = ['BTC', 'ETH', 'XRP', 'BNB', 'ADA', 'SOL', 'DOGE', 'MATIC', 'DOT', 'AVAX', 'SHIB', 'LTC', 'UNI', 'LINK', 'TRX']
+        # 保持程序运行
+        while monitor.monitoring:
+            time.sleep(10)  # 每10秒检查一次监控状态
             
-            # 检查是否是多个币种（用逗号分隔）
-            if ',' in arg:
-                tokens = [token.strip() + 'USDT' for token in arg.split(',') if token.strip() in known_tokens]
-                if tokens:
-                    question = f"分析 {', '.join([t.replace('USDT', '') for t in tokens])} 的投资组合配置"
-                    monitor.ask_claude_with_data(question, tokens)
-                else:
-                    print("❌ 未识别的币种组合")
-            elif arg in known_tokens:
-                # 单个币种
-                symbol = arg + 'USDT'
-                question = f"{arg}日内走势如何？技术面和基本面分析"
-                monitor.ask_claude_with_data(question, [symbol])
-            else:
-                question = sys.argv[1]
-                monitor.ask_claude_with_data(question)
-        else:
-            # 多个参数
-            question = " ".join(sys.argv[1:])
-            # 检查是否指定了特定币种
-            if len(sys.argv) > 2 and sys.argv[1].upper().endswith('USDT'):
-                symbol = sys.argv[1].upper()
-                question = " ".join(sys.argv[2:])
-                monitor.ask_claude_with_data(question, [symbol])
-            else:
-                monitor.ask_claude_with_data(question)
-    else:
-        # 交互模式
-        print("🏛️ 加密货币24小时监控系统 (输入quit退出)", flush=True)
-        print("💡 用法示例:", flush=True)
-        print("   - 启动持续监控: python crypto_bot.py --monitor 或 -m", flush=True)
-        print("   - 兼容旧模式: python crypto_bot.py --auto 或 -a", flush=True)
-        print("   - 单币种分析: 'BTC' 或 'ETH'", flush=True)
-        print("   - 多币种投资组合: 'BTC,ETH,SOL' (逗号分隔)", flush=True)
-        print("   - 指定交易对: 'ETHUSDT 以太坊今天走势如何?'", flush=True)
-        print("   - 直接提问: '当前市场适合投资吗?'", flush=True)
-        print("   - 查看交易统计: 输入 'stats'", flush=True)
-        print("   - 查看今日分析缓存: 输入 'cache'", flush=True)
-        print("   - 启动24小时监控: 输入 'start_monitor'", flush=True)
-        print("   - 停止监控: 输入 'stop_monitor'", flush=True)
-
-        while True:
-            user_input = input("\n❓ 问题: ").strip()
-            if user_input.lower() == 'quit':
-                break
-            elif user_input.lower() == 'stats':
-                monitor.print_trading_stats()
-                continue
-            elif user_input.lower() == 'cache':
-                monitor.show_today_analysis_status()
-                continue
-            elif user_input.lower() == 'start_monitor':
-                monitor.start_monitoring()
-                print("🔄 24小时监控系统已启动，继续输入问题或输入quit退出")
-                continue
-            elif user_input.lower() == 'stop_monitor':
-                monitor.stop_monitoring()
-                print("⏹️ 24小时监控系统已停止")
-                continue
-            # 兼容旧命令
-            elif user_input.lower() == 'start_auto':
-                monitor.start_monitoring()
-                print("🔄 24小时监控系统已启动 (兼容模式)，继续输入问题或输入quit退出")
-                continue
-            elif user_input.lower() == 'stop_auto':
-                monitor.stop_monitoring()
-                print("⏹️ 24小时监控系统已停止 (兼容模式)")
-                continue
-            
-            if user_input:
-                # 解析输入，支持多币种分析
-                known_tokens = ['BTC', 'ETH', 'XRP', 'BNB', 'ADA', 'SOL', 'DOGE', 'MATIC', 'DOT', 'AVAX', 'SHIB', 'LTC', 'UNI', 'LINK', 'TRX']
-                
-                # 检查是否是多币种组合（用逗号分隔）
-                if ',' in user_input and all(token.strip().upper() in known_tokens for token in user_input.split(',')):
-                    tokens = [token.strip().upper() + 'USDT' for token in user_input.split(',')]
-                    question = f"分析 {', '.join([t.replace('USDT', '') for t in tokens])} 的投资组合配置"
-                    monitor.ask_claude_with_data(question, tokens)
-                else:
-                    parts = user_input.split(' ', 1)
-                    
-                    # 检查是否是单独的代币名
-                    if len(parts) == 1 and parts[0].upper() in known_tokens:
-                        symbol = parts[0].upper() + 'USDT'
-                        question = f"{parts[0].upper()}技术面和基本面分析"
-                        monitor.ask_claude_with_data(question, [symbol])
-                    elif len(parts) > 1 and parts[0].upper().endswith('USDT'):
-                        # 指定了完整交易对
-                        symbol = parts[0].upper()
-                        question = parts[1]
-                        monitor.ask_claude_with_data(question, [symbol])
-                    else:
-                        # 普通问题，使用默认多币种分析
-                        monitor.ask_claude_with_data(user_input, ['BTCUSDT', 'ETHUSDT'])
+    except KeyboardInterrupt:
+        print("\n🛑 收到中断信号，正在停止监控系统...", flush=True)
+        monitor.stop_monitoring()
+        print("👋 24小时监控系统已安全退出", flush=True)
 
 
 if __name__ == "__main__":

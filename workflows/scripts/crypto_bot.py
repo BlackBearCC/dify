@@ -33,6 +33,13 @@ import uuid
 from dataclasses import dataclass
 from llm_client import LLMClient, LLMProvider, create_claude_client, create_doubao_client, create_deepseek_client
 
+# Telegram机器人集成
+try:
+    from telegram_bot import start_telegram_bot_thread
+    TELEGRAM_BOT_AVAILABLE = True
+except ImportError:
+    TELEGRAM_BOT_AVAILABLE = False
+
 @dataclass
 class MarketData:
     symbol: str
@@ -123,6 +130,11 @@ class Crypto24hMonitor:
         self.claude_api_key = os.getenv('CLAUDE_API_KEY')
         self.claude_base_url = os.getenv('CLAUDE_BASE_URL', 'https://clubcdn.383338.xyz')
         self.claude_model = self.config.get('API配置', {}).get('Claude', {}).get('模型', 'claude-sonnet-4-20250514')
+
+        # Telegram机器人配置
+        self.telegram_token = os.getenv('TELEGRAM_TOKEN')
+        self.telegram_chat_id = os.getenv('CHAT_ID')
+        self.telegram_bot_thread = None
 
         # CoinGecko API配置
         self.coingecko_api_key = "CG-SJ8bSJ7VmR2KH16w3UtgcYPa"
@@ -429,6 +441,34 @@ class Crypto24hMonitor:
         print(f"⏱️ K线获取间隔: {self.config.get('K线数据配置', {}).get('获取间隔', 60)}秒", flush=True)
         print(f"🔄 常规分析间隔: {self.config.get('触发条件', {}).get('常规分析间隔', 900)}秒", flush=True)
         print(f"⚡ 紧急分析冷却: {self.config.get('触发条件', {}).get('常规分析间隔', 900)}秒（每个币种独立）", flush=True)
+        
+        # 启动Telegram机器人（如果配置了）
+        self._start_telegram_bot()
+        
+    def _start_telegram_bot(self):
+        """启动Telegram机器人"""
+        if not TELEGRAM_BOT_AVAILABLE:
+            print("⚠️ Telegram机器人功能不可用：缺少telegram_bot模块或python-telegram-bot库")
+            return
+            
+        if not self.telegram_token or not self.telegram_chat_id:
+            print("⚠️ Telegram机器人未配置：缺少TELEGRAM_TOKEN或CHAT_ID环境变量")
+            print("💡 配置方法：在.env文件中添加：")
+            print("   TELEGRAM_TOKEN=your_bot_token")
+            print("   CHAT_ID=your_chat_id")
+            return
+            
+        try:
+            print("🤖 启动Telegram机器人...")
+            self.telegram_bot_thread = start_telegram_bot_thread(
+                self, self.telegram_token, self.telegram_chat_id
+            )
+            if self.telegram_bot_thread:
+                print("✅ Telegram机器人已在后台启动")
+            else:
+                print("❌ Telegram机器人启动失败")
+        except Exception as e:
+            print(f"❌ Telegram机器人启动异常: {e}")
         
     def stop_monitoring(self):
         """停止监控"""

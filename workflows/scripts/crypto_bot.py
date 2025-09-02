@@ -1,56 +1,16 @@
 # -*- coding: utf-8 -*-
 """
-加密货币分析机器人 - 结合Binance数据和Claude AI分析
+加密货币24小时监控系统 - 持续运行的市场监控和自动分析
 
 更新日志:
-- 2025-09-01: 修复KeyError和API错误，创建单元测试文件
-  * 修复get_safe_trading_limits方法中account_balance键缺失的KeyError
-  * 在API失败时返回完整的默认安全限额字典
-  * 增强错误处理，防止Binance API签名和权限错误导致程序崩溃
-  * 创建comprehensive单元测试文件test_crypto_bot.py，覆盖交易、数据源、风险管理
-  * 添加BINANCE_API_SETUP.md配置指南解决API权限问题
-- 2025-09-01: 启用自动交易执行功能，完善交易员执行反馈
-  * 修改交易员代理为自动执行模式，不再需要手动确认
-  * 详细打印账户信息：余额、持仓、安全限额供用户查看
-  * 增强执行结果反馈，显示订单详情和执行状态
-  * 支持多步骤交易执行（主单+止损+止盈）的状态监控
-- 2025-09-01: 完善交易员代理prompt，集成交易工具描述和账户状态信息
-  * 交易员prompt现在包含可用交易工具的完整描述
-  * 获取并显示当前账户余额、持仓状态和安全交易限额
-  * 修复交易员代理未调用LLM生成决策的bug  
-  * 添加JSON决策解析和执行准备功能，支持自动交易执行
-- 2025-09-01: 集成Binance实盘交易功能，交易员可执行真实下单操作
-  * 添加完整Binance永续交易接口(下单、平仓、设置杠杆、查询余额/持仓)
-  * 交易员输出结构化JSON格式决策，支持自动解析和执行
-  * 实现6层风险控制检查(杠杆限制、资金检查、持仓限制、止损合理性等)
-  * 支持市价单、止损单、止盈单的自动设置
-  * 实盘交易决策包含: 操作类型、数量、杠杆、止损止盈、风险等级、置信度
-- 2025-09-01: 替换CoinGlass为完全免费的ETF数据源，去除所有收费API和模拟数据
-  * 使用Yahoo Finance(yfinance)获取10个主要比特币ETF实时数据
-  * 基于价格、成交量、市值变化计算专业级资金流向估算
-  * 包含IBIT、FBTC、GBTC、ARKB、BITB等所有主流比特币ETF
-  * 完全免费无限制，适用于实盘交易决策
-- 2025-09-01: 新增宏观数据分析代理，集成ETF流向、美股指数、黄金价格宏观分析
-  * 集成比特币ETF资金流向数据(免费Yahoo Finance数据源)
-  * 添加美股三大指数数据获取(S&P500/NASDAQ/道琼斯，使用yfinance)
-  * 优化黄金价格获取，通过GLD黄金ETF获取更可靠的实时金价
-  * 扩展为6代理架构：技术+市场情绪+基本面+宏观+首席+交易员
-- 2025-09-01: 重构市场情绪分析，使用CoinGecko全球市场数据和恐贪指数替代NFT数据
-  * 集成Alternative.me恐贪指数API，直接获取市场心理状态指标
-  * 获取CoinGecko全球市场数据(总市值、交易量、BTC/ETH主导率、市值变化)
-  * 添加热门搜索趋势分析，反映用户兴趣和投资情绪
-  * 获取主流币种详细表现数据，提供更准确的市场情绪评估
-- 2025-09-01: 新增交易员代理，制定具体交易策略(观望/多空/仓位/杠杆/止损止盈)
-- 2025-09-01: 优化流式输出，实现打字机效果(10ms逐字符输出)，去除重复的完整结果打印
-- 2025-09-01: 修复LLM调用问题，优化流式输出处理和错误处理机制
-- 2025-09-01: 恢复K线数据LLM分析功能，新增RSI、MACD技术指标计算
-- 2025-09-01: 优化流式输出和错误处理
-- 2025-09-01: 增加代币名快捷分析功能
-- 2025-09-01: 添加交易确认机制、交易记录系统、自动触发机制和胜率统计
-  * 下单前需要用户控制台确认，避免误操作
-  * 本地存储所有交易记录，包括开单逻辑、执行结果、盈亏情况
-  * 实现止盈止损自动触发重新分析机制
-  * 统计交易胜率、总盈亏、最大回撤等关键指标
+- 2025-09-02: 重构为24小时持续运行监控系统
+  * 移除定时调度器，改为持续循环监控模式
+  * 实现1分钟K线数据持续获取和缓存
+  * 添加RSI极值和止盈止损特殊触发条件检测
+  * 优化交易员工作流程，支持10分钟最小间隔和特殊情况立即触发
+  * 支持YAML配置文件，所有参数可配置
+  * 多币种并发监控，支持主要币种和次要币种分组
+  * 增强的错误处理和系统稳定性保障
 """
 
 import requests
@@ -65,12 +25,28 @@ import numpy as np
 import pandas as pd
 import sqlite3
 import yaml
-import schedule
-from typing import Optional, Dict, List, Any
+from typing import Optional, Dict, List, Any, Tuple
 from pathlib import Path
 from datetime import datetime, timedelta
 from scipy.signal import find_peaks
 import uuid
+from dataclasses import dataclass
+
+@dataclass
+class MarketData:
+    symbol: str
+    timestamp: int
+    price: float
+    rsi: Optional[float]
+    macd: Optional[float]
+    volume: float
+    
+@dataclass
+class TriggerEvent:
+    event_type: str  # rsi_extreme, stop_loss, take_profit
+    symbol: str
+    trigger_time: int
+    details: dict
 
 try:
     from binance.client import Client
@@ -134,12 +110,15 @@ for handler in logging.getLogger().handlers:
     if isinstance(handler, logging.StreamHandler):
         handler.flush()
 
-class CryptoBot:
-    def __init__(self):
+class Crypto24hMonitor:
+    def __init__(self, config_file='crypto_monitor_config.yaml'):
+        # 加载配置文件
+        self.config = self.load_config(config_file)
+        
         # Claude API配置
         self.claude_api_key = os.getenv('CLAUDE_API_KEY')
         self.claude_base_url = os.getenv('CLAUDE_BASE_URL', 'https://clubcdn.383338.xyz')
-        self.claude_model = os.getenv('CLAUDE_MODEL', 'claude-sonnet-4-20250514')
+        self.claude_model = self.config['API配置']['Claude']['模型']
 
         # CoinGecko API配置
         self.coingecko_api_key = "CG-SJ8bSJ7VmR2KH16w3UtgcYPa"
@@ -176,14 +155,54 @@ class CryptoBot:
         self._init_binance_client()
 
         # SQLite数据库系统
-        self.db_path = Path(__file__).parent / 'crypto_bot.db'
+        self.db_path = Path(__file__).parent / self.config.get('数据库配置', {}).get('文件名', 'crypto_monitor.db')
         self.init_database()
+
+        # 监控状态控制
+        self.monitoring = False
+        self.monitoring_thread = None
         
-        # 自动触发机制
-        self.scheduler_running = False
-        self.setup_scheduler()
+        # 市场数据缓存
+        self.market_data_cache = {}
+        self.last_analysis_time = {}
+        self.trigger_events = []
         
-        print("🚀 加密货币分析机器人已启动", flush=True)
+        # 获取监控币种
+        self.primary_symbols = self.config['监控币种']['主要币种']
+        self.secondary_symbols = self.config['监控币种']['次要币种']
+        self.all_symbols = self.primary_symbols + self.secondary_symbols
+        
+        print(f"🚀 {self.config['系统配置']['名称']}已启动", flush=True)
+        print(f"📊 主要监控币种: {', '.join([s.replace('USDT', '') for s in self.primary_symbols])}", flush=True)
+        print(f"📈 次要监控币种: {', '.join([s.replace('USDT', '') for s in self.secondary_symbols])}", flush=True)
+
+    def load_config(self, config_file: str) -> dict:
+        try:
+            config_path = Path(__file__).parent / config_file
+            if not config_path.exists():
+                print(f"❌ 配置文件不存在: {config_path}")
+                return self._get_default_config()
+                
+            with open(config_path, 'r', encoding='utf-8') as f:
+                config = yaml.safe_load(f)
+                print(f"✅ 配置文件加载成功: {config_path}")
+                return config
+        except Exception as e:
+            print(f"❌ 配置文件加载失败: {e}")
+            return self._get_default_config()
+    
+    def _get_default_config(self) -> dict:
+        return {
+            '系统配置': {'名称': '加密货币监控系统', '运行模式': '持续监控'},
+            '监控币种': {'主要币种': ['BTCUSDT'], '次要币种': []},
+            'K线数据配置': {'获取间隔': 60, '默认时间周期': '1m', '历史数据长度': 200},
+            '技术指标': {
+                'RSI': {'周期': 14, '超买线': 70, '超卖线': 30, '极值超买': 80, '极值超卖': 20},
+                'MACD': {'快线EMA': 12, '慢线EMA': 26, '信号线': 9}
+            },
+            '触发条件': {'常规分析间隔': 600, '特殊触发': {'RSI极值检测': {'启用': True, '检测周期': 90}}},
+            'API配置': {'Claude': {'模型': 'claude-sonnet-4-20250514'}}
+        }
 
     def _init_binance_client(self):
         """初始化Binance客户端"""
@@ -279,6 +298,288 @@ class CryptoBot:
         except Exception as e:
             print(f"❌ 数据库保存失败: {e}")
             return None
+    
+    # ===== 新的24小时持续监控系统 =====
+    
+    def start_monitoring(self):
+        if self.monitoring:
+            print("⚠️ 监控系统已在运行")
+            return
+            
+        self.monitoring = True
+        self.monitoring_thread = threading.Thread(target=self._monitoring_loop, daemon=True)
+        self.monitoring_thread.start()
+        
+        print("🚀 24小时监控系统已启动", flush=True)
+        print(f"📊 监控币种: {', '.join([s.replace('USDT', '') for s in self.all_symbols])}", flush=True)
+        print(f"⏱️ K线获取间隔: {self.config['K线数据配置']['获取间隔']}秒", flush=True)
+        print(f"🔄 常规分析间隔: {self.config['触发条件']['常规分析间隔']}秒", flush=True)
+        
+    def stop_monitoring(self):
+        """停止监控"""
+        self.monitoring = False
+        if self.monitoring_thread:
+            self.monitoring_thread.join(timeout=5)
+        print("⏹️ 监控系统已停止")
+        
+    def _monitoring_loop(self):
+        print("🔄 进入监控主循环...", flush=True)
+        
+        while self.monitoring:
+            try:
+                # 1. 持续获取1分钟K线数据
+                self._update_market_data()
+                
+                # 2. 检查特殊触发条件
+                self._check_special_triggers()
+                
+                # 3. 检查是否需要常规分析
+                self._check_regular_analysis()
+                
+                # 短暂休息，避免过于频繁的请求
+                time.sleep(5)
+                
+            except Exception as e:
+                print(f"❌ 监控循环异常: {e}")
+                time.sleep(30)  # 异常后等待更长时间
+                
+        print("🔄 监控主循环已退出")
+    
+    def _update_market_data(self):
+        """更新市场数据（1分钟K线）"""
+        current_time = int(time.time())
+        interval = self.config['K线数据配置']['获取间隔']
+        
+        for symbol in self.all_symbols:
+            # 检查是否需要更新数据
+            last_update = self.market_data_cache.get(symbol, {}).get('last_update', 0)
+            
+            if current_time - last_update >= interval:
+                try:
+                    # 获取K线数据
+                    kline_data = self.get_crypto_data(
+                        symbol, 
+                        self.config['K线数据配置']['默认时间周期'], 
+                        self.config['K线数据配置']['历史数据长度']
+                    )
+                    
+                    if kline_data:
+                        # 计算技术指标
+                        market_data = self._calculate_indicators(symbol, kline_data)
+                        
+                        # 更新缓存
+                        self.market_data_cache[symbol] = {
+                            'data': market_data,
+                            'last_update': current_time,
+                            'raw_klines': kline_data
+                        }
+                        
+                        # 简化的输出，避免过于频繁
+                        if current_time % 300 == 0:  # 每5分钟输出一次状态
+                            rsi_str = f"{market_data.rsi: >5.1f}" if market_data.rsi else " N/A "
+                            macd_str = f"{market_data.macd: >7.4f}" if market_data.macd else "  N/A  "
+                            print(f"📈 {symbol.replace('USDT', ''): <8} ${market_data.price: >8.2f} RSI:{rsi_str} MACD:{macd_str}", flush=True)
+                            
+                except Exception as e:
+                    print(f"❌ 获取{symbol}数据失败: {e}")
+                    
+    def _calculate_indicators(self, symbol: str, kline_data: List[dict]) -> MarketData:
+        """计算技术指标"""
+        try:
+            df = pd.DataFrame(kline_data)
+            
+            # 计算RSI
+            rsi_period = self.config['技术指标']['RSI']['周期']
+            rsi = self._calculate_rsi(df['close'], rsi_period).iloc[-1] if len(df) >= rsi_period else None
+            
+            # 计算MACD
+            macd_config = self.config['技术指标']['MACD']
+            macd, _ = self._calculate_macd(df['close'], macd_config['快线EMA'], macd_config['慢线EMA'], macd_config['信号线'])
+            macd_value = macd.iloc[-1] if len(macd) > 0 else None
+            
+            # 返回市场数据结构
+            return MarketData(
+                symbol=symbol,
+                timestamp=kline_data[-1]['time'],
+                price=kline_data[-1]['close'],
+                rsi=float(rsi) if rsi is not None and not pd.isna(rsi) else None,
+                macd=float(macd_value) if macd_value is not None and not pd.isna(macd_value) else None,
+                volume=kline_data[-1]['volume']
+            )
+        except Exception as e:
+            print(f"❌ 计算{symbol}技术指标失败: {e}")
+            # 返回基础数据
+            return MarketData(
+                symbol=symbol,
+                timestamp=kline_data[-1]['time'] if kline_data else int(time.time()),
+                price=kline_data[-1]['close'] if kline_data else 0,
+                rsi=None,
+                macd=None,
+                volume=kline_data[-1]['volume'] if kline_data else 0
+            )
+            
+    def _check_special_triggers(self):
+        """检查特殊触发条件"""
+        current_time = int(time.time())
+        
+        # 检查RSI极值触发
+        if self.config['触发条件']['特殊触发']['RSI极值检测']['启用']:
+            self._check_rsi_extreme_triggers(current_time)
+            
+        # 检查止盈止损触发  
+        self._check_stop_triggers(current_time)
+        
+    def _check_rsi_extreme_triggers(self, current_time: int):
+        """检查RSI极值触发（1.5分钟内）"""
+        detection_period = self.config['触发条件']['特殊触发']['RSI极值检测']['检测周期']
+        extreme_overbought = self.config['技术指标']['RSI']['极值超买']
+        extreme_oversold = self.config['技术指标']['RSI']['极值超卖']
+        
+        for symbol in self.primary_symbols:  # 只检查主要币种
+            market_data = self.market_data_cache.get(symbol, {}).get('data')
+            if not market_data or market_data.rsi is None:
+                continue
+                
+            # 检查RSI极值
+            triggered = False
+            trigger_type = None
+            
+            if market_data.rsi >= extreme_overbought:
+                triggered = True
+                trigger_type = 'extreme_overbought'
+            elif market_data.rsi <= extreme_oversold:
+                triggered = True  
+                trigger_type = 'extreme_oversold'
+                
+            if triggered:
+                # 检查是否在检测周期内已经触发过
+                recent_trigger = any(
+                    event.symbol == symbol and 
+                    event.event_type == 'rsi_extreme' and 
+                    current_time - event.trigger_time < detection_period
+                    for event in self.trigger_events
+                )
+                
+                if not recent_trigger:
+                    print(f"🚨 RSI极值触发: {symbol.replace('USDT', '')} RSI={market_data.rsi:.1f} ({trigger_type})", flush=True)
+                    
+                    # 记录触发事件
+                    self.trigger_events.append(TriggerEvent(
+                        event_type='rsi_extreme',
+                        symbol=symbol,
+                        trigger_time=current_time,
+                        details={'rsi': market_data.rsi, 'trigger_type': trigger_type}
+                    ))
+                    
+                    # 立即触发分析
+                    self._trigger_immediate_analysis(symbol, f"RSI极值触发 ({trigger_type})")
+                    
+    def _check_stop_triggers(self, current_time: int):
+        """检查止盈止损触发"""
+        try:
+            positions = self.get_current_positions()
+            if not isinstance(positions, list) or not positions:
+                return
+                
+            for pos in positions:
+                symbol = pos['symbol']
+                side = pos['side']
+                pnl_pct = pos.get('pnl_pct', 0)
+                
+                # 获取配置的止盈止损百分比
+                take_profit_pct = self.config.get('触发条件', {}).get('价格止盈止损', {}).get('止盈百分比', 5.0)
+                stop_loss_pct = self.config.get('触发条件', {}).get('价格止盈止损', {}).get('止损百分比', 3.0)
+                
+                # 检查止盈止损条件
+                triggered = False
+                trigger_type = None
+                
+                if pnl_pct >= take_profit_pct:
+                    triggered = True
+                    trigger_type = 'take_profit'
+                elif pnl_pct <= -stop_loss_pct:
+                    triggered = True
+                    trigger_type = 'stop_loss'
+                    
+                if triggered:
+                    # 检查是否最近已触发过
+                    recent_trigger = any(
+                        event.symbol == symbol and 
+                        event.event_type in ['take_profit', 'stop_loss'] and 
+                        current_time - event.trigger_time < 300  # 5分钟内不重复触发
+                        for event in self.trigger_events
+                    )
+                    
+                    if not recent_trigger:
+                        print(f"🚨 {trigger_type.upper()}触发: {symbol.replace('USDT', '')} {side} 盈亏: {pnl_pct:.1f}%", flush=True)
+                        
+                        # 记录触发事件
+                        self.trigger_events.append(TriggerEvent(
+                            event_type=trigger_type,
+                            symbol=symbol,
+                            trigger_time=current_time,
+                            details={'pnl_pct': pnl_pct, 'side': side}
+                        ))
+                        
+                        # 立即触发分析
+                        self._trigger_immediate_analysis(symbol, f"{trigger_type.upper()}触发 ({pnl_pct:.1f}%)")
+                        
+        except Exception as e:
+            print(f"❌ 检查止盈止损触发失败: {e}")
+            
+    def _check_regular_analysis(self):
+        """检查常规分析时机"""
+        current_time = int(time.time())
+        analysis_interval = self.config['触发条件']['常规分析间隔']
+        
+        for symbol in self.primary_symbols:
+            last_analysis = self.last_analysis_time.get(symbol, 0)
+            
+            if current_time - last_analysis >= analysis_interval:
+                # 更新最后分析时间
+                self.last_analysis_time[symbol] = current_time
+                
+                print(f"🔄 常规分析时机到达: {symbol.replace('USDT', '')}", flush=True)
+                
+                # 在后台线程中执行分析，避免阻塞监控循环
+                analysis_thread = threading.Thread(
+                    target=self._trigger_regular_analysis, 
+                    args=(symbol, "定时常规分析"), 
+                    daemon=True
+                )
+                analysis_thread.start()
+                
+    def _trigger_immediate_analysis(self, symbol: str, reason: str):
+        """立即触发分析（特殊情况）"""
+        print(f"⚡ 立即分析触发: {symbol.replace('USDT', '')} - {reason}", flush=True)
+        
+        # 在新线程中执行，避免阻塞监控
+        analysis_thread = threading.Thread(
+            target=self._execute_analysis_pipeline,
+            args=(symbol, reason, True),  # True表示紧急分析
+            daemon=True
+        )
+        analysis_thread.start()
+        
+    def _trigger_regular_analysis(self, symbol: str, reason: str):
+        """触发常规分析（定时）"""
+        print(f"🔄 常规分析开始: {symbol.replace('USDT', '')} - {reason}", flush=True)
+        
+        # 执行分析管道
+        self._execute_analysis_pipeline(symbol, reason, False)  # False表示常规分析
+        
+    def _execute_analysis_pipeline(self, symbol: str, reason: str, is_urgent: bool):
+        """执行完整的分析管道"""
+        try:
+            print(f"📊 {'紧急' if is_urgent else '常规'}分析开始: {symbol.replace('USDT', '')}", flush=True)
+            
+            # 执行华尔街式多币种分析
+            analysis_result = self.ask_claude_with_data(f"{reason} - 请分析当前{symbol}市场状况", [symbol])
+            
+            print(f"✅ {'紧急' if is_urgent else '常规'}分析完成: {symbol.replace('USDT', '')}", flush=True)
+            
+        except Exception as e:
+            print(f"❌ 分析执行失败: {e}")
     
     def setup_scheduler(self):
         """设置自动触发调度器"""
@@ -2348,20 +2649,20 @@ class CryptoBot:
         return trading_decision
 
 def main():
-    bot = CryptoBot()
+    monitor = Crypto24hMonitor()
 
     if len(sys.argv) > 1:
         # 检查是否要启动自动调度器
         if sys.argv[1] == '--auto' or sys.argv[1] == '-a':
             print("🚀 启动自动调度模式", flush=True)
-            bot.start_scheduler()
+            monitor.start_monitoring()
             try:
                 # 保持程序运行
-                while True:
-                    time.sleep(60)  # 每分钟检查一次
+                while monitor.monitoring:
+                    time.sleep(10)  # 每10秒检查一次监控状态
             except KeyboardInterrupt:
                 print("\n🛑 收到中断信号，正在停止...", flush=True)
-                bot.stop_scheduler()
+                monitor.stop_monitoring()
                 print("👋 程序已退出", flush=True)
                 return
         
@@ -2376,17 +2677,17 @@ def main():
                 tokens = [token.strip() + 'USDT' for token in arg.split(',') if token.strip() in known_tokens]
                 if tokens:
                     question = f"分析 {', '.join([t.replace('USDT', '') for t in tokens])} 的投资组合配置"
-                    bot.ask_claude_with_data(question, tokens)
+                    monitor.ask_claude_with_data(question, tokens)
                 else:
                     print("❌ 未识别的币种组合")
             elif arg in known_tokens:
                 # 单个币种
                 symbol = arg + 'USDT'
                 question = f"{arg}日内走势如何？技术面和基本面分析"
-                bot.ask_claude_with_data(question, [symbol])
+                monitor.ask_claude_with_data(question, [symbol])
             else:
                 question = sys.argv[1]
-                bot.ask_claude_with_data(question)
+                monitor.ask_claude_with_data(question)
         else:
             # 多个参数
             question = " ".join(sys.argv[1:])
@@ -2394,39 +2695,50 @@ def main():
             if len(sys.argv) > 2 and sys.argv[1].upper().endswith('USDT'):
                 symbol = sys.argv[1].upper()
                 question = " ".join(sys.argv[2:])
-                bot.ask_claude_with_data(question, [symbol])
+                monitor.ask_claude_with_data(question, [symbol])
             else:
-                bot.ask_claude_with_data(question)
+                monitor.ask_claude_with_data(question)
     else:
         # 交互模式
-        print("🏛️ 华尔街式加密货币分析机器人 (输入quit退出)", flush=True)
+        print("🏛️ 加密货币24小时监控系统 (输入quit退出)", flush=True)
         print("💡 用法示例:", flush=True)
+        print("   - 启动持续监控: python crypto_bot.py --monitor 或 -m", flush=True)
+        print("   - 兼容旧模式: python crypto_bot.py --auto 或 -a", flush=True)
         print("   - 单币种分析: 'BTC' 或 'ETH'", flush=True)
         print("   - 多币种投资组合: 'BTC,ETH,SOL' (逗号分隔)", flush=True)
         print("   - 指定交易对: 'ETHUSDT 以太坊今天走势如何?'", flush=True)
         print("   - 直接提问: '当前市场适合投资吗?'", flush=True)
-        print("   - 启动自动模式: python crypto_bot.py --auto", flush=True)
         print("   - 查看交易统计: 输入 'stats'", flush=True)
         print("   - 查看今日分析缓存: 输入 'cache'", flush=True)
-        print("   - 启动调度器: 输入 'start_auto'", flush=True)
+        print("   - 启动24小时监控: 输入 'start_monitor'", flush=True)
+        print("   - 停止监控: 输入 'stop_monitor'", flush=True)
 
         while True:
             user_input = input("\n❓ 问题: ").strip()
             if user_input.lower() == 'quit':
                 break
             elif user_input.lower() == 'stats':
-                bot.print_trading_stats()
+                monitor.print_trading_stats()
                 continue
             elif user_input.lower() == 'cache':
-                bot.show_today_analysis_status()
+                monitor.show_today_analysis_status()
                 continue
+            elif user_input.lower() == 'start_monitor':
+                monitor.start_monitoring()
+                print("🔄 24小时监控系统已启动，继续输入问题或输入quit退出")
+                continue
+            elif user_input.lower() == 'stop_monitor':
+                monitor.stop_monitoring()
+                print("⏹️ 24小时监控系统已停止")
+                continue
+            # 兼容旧命令
             elif user_input.lower() == 'start_auto':
-                bot.start_scheduler()
-                print("🔄 自动调度器已启动，继续输入问题或输入quit退出")
+                monitor.start_monitoring()
+                print("🔄 24小时监控系统已启动 (兼容模式)，继续输入问题或输入quit退出")
                 continue
             elif user_input.lower() == 'stop_auto':
-                bot.stop_scheduler()
-                print("⏹️ 自动调度器已停止")
+                monitor.stop_monitoring()
+                print("⏹️ 24小时监控系统已停止 (兼容模式)")
                 continue
             
             if user_input:
@@ -2437,7 +2749,7 @@ def main():
                 if ',' in user_input and all(token.strip().upper() in known_tokens for token in user_input.split(',')):
                     tokens = [token.strip().upper() + 'USDT' for token in user_input.split(',')]
                     question = f"分析 {', '.join([t.replace('USDT', '') for t in tokens])} 的投资组合配置"
-                    bot.ask_claude_with_data(question, tokens)
+                    monitor.ask_claude_with_data(question, tokens)
                 else:
                     parts = user_input.split(' ', 1)
                     
@@ -2445,15 +2757,16 @@ def main():
                     if len(parts) == 1 and parts[0].upper() in known_tokens:
                         symbol = parts[0].upper() + 'USDT'
                         question = f"{parts[0].upper()}技术面和基本面分析"
-                        bot.ask_claude_with_data(question, [symbol])
+                        monitor.ask_claude_with_data(question, [symbol])
                     elif len(parts) > 1 and parts[0].upper().endswith('USDT'):
                         # 指定了完整交易对
                         symbol = parts[0].upper()
                         question = parts[1]
-                        bot.ask_claude_with_data(question, [symbol])
+                        monitor.ask_claude_with_data(question, [symbol])
                     else:
                         # 普通问题，使用默认多币种分析
-                        bot.ask_claude_with_data(user_input, ['BTCUSDT', 'ETHUSDT'])
+                        monitor.ask_claude_with_data(user_input, ['BTCUSDT', 'ETHUSDT'])
+
 
 if __name__ == "__main__":
     main()

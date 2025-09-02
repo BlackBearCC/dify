@@ -12,8 +12,8 @@ from datetime import datetime
 from typing import Optional
 
 try:
-    from telegram import Bot, Update
-    from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
+    from telegram import Bot, Update, InlineKeyboardButton, InlineKeyboardMarkup
+    from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes, CallbackQueryHandler
     TELEGRAM_AVAILABLE = True
 except ImportError:
     TELEGRAM_AVAILABLE = False
@@ -46,32 +46,75 @@ class CryptoTelegramBot:
         # 支持的币种（从配置中获取）
         self.supported_symbols = crypto_monitor.all_symbols
         
+    def _create_main_menu(self):
+        """创建主菜单键盘"""
+        keyboard = [
+            [
+                InlineKeyboardButton("📊 系统状态", callback_data="status"),
+                InlineKeyboardButton("❓ 帮助", callback_data="help")
+            ],
+            [
+                InlineKeyboardButton("📈 BTC分析", callback_data="quick_btc"),
+                InlineKeyboardButton("📈 ETH分析", callback_data="quick_eth"),
+                InlineKeyboardButton("📈 SOL分析", callback_data="quick_sol")
+            ],
+            [
+                InlineKeyboardButton("🔍 完整分析", callback_data="analyze_menu"),
+                InlineKeyboardButton("📋 获取报告", callback_data="report_menu")
+            ]
+        ]
+        return InlineKeyboardMarkup(keyboard)
+
+    def _create_analyze_menu(self):
+        """创建分析菜单"""
+        keyboard = [
+            [
+                InlineKeyboardButton("🔍 BTC完整分析", callback_data="analyze_BTC"),
+                InlineKeyboardButton("🔍 ETH完整分析", callback_data="analyze_ETH")
+            ],
+            [
+                InlineKeyboardButton("🔍 SOL完整分析", callback_data="analyze_SOL"),
+                InlineKeyboardButton("◀️ 返回主菜单", callback_data="main_menu")
+            ]
+        ]
+        return InlineKeyboardMarkup(keyboard)
+
+    def _create_report_menu(self):
+        """创建报告菜单"""
+        keyboard = [
+            [
+                InlineKeyboardButton("📊 技术分析", callback_data="report_tech"),
+                InlineKeyboardButton("📈 市场分析", callback_data="report_market")
+            ],
+            [
+                InlineKeyboardButton("📋 基本面分析", callback_data="report_fundamental"),
+                InlineKeyboardButton("🌍 宏观分析", callback_data="report_macro")
+            ],
+            [
+                InlineKeyboardButton("🎯 首席分析", callback_data="report_chief"),
+                InlineKeyboardButton("◀️ 返回主菜单", callback_data="main_menu")
+            ]
+        ]
+        return InlineKeyboardMarkup(keyboard)
+
     async def start_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """启动命令处理"""
-        welcome_msg = f"""
-🤖 **加密货币监控系统 Telegram Bot**
+        welcome_msg = """🤖 **加密货币监控系统**
 
-📊 **可用命令：**
+👋 欢迎使用专业的加密货币24小时监控助手！
 
-🔍 **获取报告：**
-`/report 角色 币种` - 获取指定角色对指定币种的最近报告
-例：`/report 技术分析师 BTC`
+🎯 **快捷功能：**
+• 点击下方按钮快速访问功能
+• 支持实时分析和智能交易
+• 24小时持续监控市场动态
 
-📈 **完整分析：**
-`/analyze 币种` - 执行完整分析流程（包括交易员下单）
-例：`/analyze BTC`
+📊 **监控币种：** BTC, ETH, SOL
+🤖 **分析师团队：** 技术、市场、基本面、宏观、首席分析师
 
-📋 **支持的角色：**
-{chr(10).join([f"• {role}" for role in self.supported_roles.keys()])}
-
-💰 **支持的币种：**
-{', '.join([symbol.replace('USDT', '') for symbol in self.supported_symbols[:10]])}...
-
-ℹ️ **其他命令：**
-`/status` - 查看系统状态
-`/help` - 显示帮助信息
-"""
-        await update.message.reply_text(welcome_msg, parse_mode='Markdown')
+选择下方功能开始使用 ⬇️"""
+        
+        reply_markup = self._create_main_menu()
+        await update.message.reply_text(welcome_msg, parse_mode='Markdown', reply_markup=reply_markup)
 
     async def help_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """帮助命令"""
@@ -331,23 +374,204 @@ class CryptoTelegramBot:
                     await update.message.reply_text(f"📄 **续：** {part}", parse_mode='Markdown')
                 await asyncio.sleep(1)  # 避免发送过快
 
+    async def button_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """处理按钮点击"""
+        query = update.callback_query
+        await query.answer()
+        
+        data = query.data
+        
+        if data == "main_menu":
+            await query.edit_message_text(
+                """🤖 **加密货币监控系统**
+
+👋 欢迎使用专业的加密货币24小时监控助手！
+
+🎯 **快捷功能：**
+• 点击下方按钮快速访问功能
+• 支持实时分析和智能交易
+• 24小时持续监控市场动态
+
+📊 **监控币种：** BTC, ETH, SOL
+🤖 **分析师团队：** 技术、市场、基本面、宏观、首席分析师
+
+选择下方功能开始使用 ⬇️""",
+                parse_mode='Markdown',
+                reply_markup=self._create_main_menu()
+            )
+            
+        elif data == "status":
+            await self._handle_status_button(query)
+            
+        elif data == "help":
+            await self._handle_help_button(query)
+            
+        elif data.startswith("quick_"):
+            symbol = data.replace("quick_", "").upper()
+            await self._handle_quick_analysis(query, symbol)
+            
+        elif data == "analyze_menu":
+            await query.edit_message_text(
+                "🔍 **选择要分析的币种**\n\n完整分析将执行：技术面→基本面→市场情绪→宏观面→首席分析→交易决策→执行下单",
+                parse_mode='Markdown',
+                reply_markup=self._create_analyze_menu()
+            )
+            
+        elif data.startswith("analyze_"):
+            symbol = data.replace("analyze_", "")
+            await self._handle_full_analysis(query, symbol)
+            
+        elif data == "report_menu":
+            await query.edit_message_text(
+                "📋 **选择报告类型**\n\n选择分析师类型获取专业报告：",
+                parse_mode='Markdown',
+                reply_markup=self._create_report_menu()
+            )
+            
+        elif data.startswith("report_"):
+            report_type = data.replace("report_", "")
+            await self._handle_report_selection(query, report_type)
+
+    async def _handle_status_button(self, query):
+        """处理状态按钮"""
+        try:
+            balance = self.crypto_monitor.get_account_balance()
+            positions = self.crypto_monitor.get_current_positions()
+            stats = self.crypto_monitor.get_trading_stats()
+            
+            status_msg = f"""📊 **系统状态报告**
+⏰ {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+
+💰 **账户余额：**
+"""
+            if 'error' not in balance:
+                for asset, info in balance.items():
+                    if info['total'] > 0:
+                        status_msg += f"• {asset}: {info['total']:.6f}\n"
+            else:
+                status_msg += f"❌ {balance['error']}\n"
+
+            status_msg += f"""
+📈 **持仓：** {len(positions) if isinstance(positions, list) else 0}个
+📊 **交易统计：**
+• 总交易: {stats['total_trades']}
+• 胜率: {stats['win_rate']:.1f}%
+• 总盈亏: {stats['total_pnl']:.2f} USDT"""
+            
+            await query.edit_message_text(status_msg, parse_mode='Markdown', reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("◀️ 返回主菜单", callback_data="main_menu")]]))
+            
+        except Exception as e:
+            await query.edit_message_text(f"❌ 获取系统状态失败: {e}", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("◀️ 返回主菜单", callback_data="main_menu")]]))
+
+    async def _handle_help_button(self, query):
+        """处理帮助按钮"""
+        help_msg = """📖 **功能说明**
+
+🔸 **快捷分析** - 获取币种技术分析
+🔸 **完整分析** - 执行全流程分析和交易
+🔸 **获取报告** - 选择特定分析师报告
+🔸 **系统状态** - 查看账户和交易统计
+
+💡 **提示：**
+• 完整分析会自动执行交易决策
+• 报告优先使用今天的缓存
+• 所有分析都基于实时市场数据"""
+        
+        await query.edit_message_text(help_msg, parse_mode='Markdown', reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("◀️ 返回主菜单", callback_data="main_menu")]]))
+
+    async def _handle_quick_analysis(self, query, symbol):
+        """处理快速分析"""
+        await query.edit_message_text(f"🔍 正在分析 {symbol}，请稍候...", parse_mode='Markdown')
+        
+        try:
+            symbol_full = f"{symbol}USDT"
+            report = await self._get_or_generate_report("技术分析师", symbol_full)
+            
+            if report:
+                await self._send_long_message_edit(query, f"📊 **{symbol} 技术分析**\n\n{report}")
+            else:
+                await query.edit_message_text(f"❌ 无法获取 {symbol} 分析报告", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("◀️ 返回主菜单", callback_data="main_menu")]]))
+        except Exception as e:
+            await query.edit_message_text(f"❌ 分析失败: {e}", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("◀️ 返回主菜单", callback_data="main_menu")]]))
+
+    async def _handle_full_analysis(self, query, symbol):
+        """处理完整分析"""
+        await query.edit_message_text(f"🚀 开始 {symbol} 完整分析流程...", parse_mode='Markdown')
+        
+        def run_analysis():
+            try:
+                symbol_full = f"{symbol}USDT"
+                result = self.crypto_monitor.ask_claude_with_data(
+                    f"Telegram按钮请求完整分析 {symbol_full}", 
+                    [symbol_full]
+                )
+                asyncio.run(self._send_long_message_edit(query, f"📈 **{symbol} 完整分析报告**\n\n{result}"))
+            except Exception as e:
+                asyncio.run(query.edit_message_text(f"❌ 分析失败: {e}", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("◀️ 返回主菜单", callback_data="main_menu")]])))
+        
+        analysis_thread = threading.Thread(target=run_analysis, daemon=True)
+        analysis_thread.start()
+
+    async def _handle_report_selection(self, query, report_type):
+        """处理报告选择"""
+        role_map = {
+            "tech": "技术分析师",
+            "market": "市场分析师", 
+            "fundamental": "基本面分析师",
+            "macro": "宏观分析师",
+            "chief": "首席分析师"
+        }
+        
+        role = role_map.get(report_type, "技术分析师")
+        await query.edit_message_text(f"🔍 正在获取{role}报告，请稍候...", parse_mode='Markdown')
+        
+        try:
+            # 默认使用BTC，用户可以通过命令指定其他币种
+            report = await self._get_or_generate_report(role, "BTCUSDT")
+            
+            if report:
+                await self._send_long_message_edit(query, f"📋 **{role}报告**\n\n{report}")
+            else:
+                await query.edit_message_text(f"❌ 无法获取{role}报告", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("◀️ 返回主菜单", callback_data="main_menu")]]))
+        except Exception as e:
+            await query.edit_message_text(f"❌ 获取报告失败: {e}", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("◀️ 返回主菜单", callback_data="main_menu")]]))
+
+    async def _send_long_message_edit(self, query, message: str):
+        """编辑消息发送长文本"""
+        max_length = 4000
+        back_button = InlineKeyboardMarkup([[InlineKeyboardButton("◀️ 返回主菜单", callback_data="main_menu")]])
+        
+        if len(message) <= max_length:
+            await query.edit_message_text(message, parse_mode='Markdown', reply_markup=back_button)
+        else:
+            # 分段发送
+            first_part = message[:max_length]
+            await query.edit_message_text(first_part, parse_mode='Markdown', reply_markup=back_button)
+            
+            remaining = message[max_length:]
+            while remaining:
+                part = remaining[:max_length]
+                remaining = remaining[max_length:]
+                await query.message.reply_text(f"📄 **续：** {part}", parse_mode='Markdown')
+                await asyncio.sleep(1)
+
     async def message_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """处理普通消息"""
         text = update.message.text.strip()
         
         # 简单的自然语言处理
         if any(word in text.lower() for word in ['分析', 'analyze', '报告', 'report']):
+            reply_markup = self._create_main_menu()
             await update.message.reply_text(
-                "💡 提示：\n"
-                "• 获取报告：`/report 角色 币种`\n"
-                "• 完整分析：`/analyze 币种`\n"
-                "• 查看帮助：`/help`",
-                parse_mode='Markdown'
+                "💡 **快捷操作**\n点击下方按钮快速访问功能：",
+                parse_mode='Markdown',
+                reply_markup=reply_markup
             )
         else:
+            reply_markup = self._create_main_menu()
             await update.message.reply_text(
-                "🤖 我是加密货币监控助手！\n"
-                "发送 `/help` 查看可用命令。"
+                "🤖 我是加密货币监控助手！\n点击下方按钮开始使用：",
+                reply_markup=reply_markup
             )
 
     def setup_handlers(self):
@@ -361,6 +585,9 @@ class CryptoTelegramBot:
         self.application.add_handler(CommandHandler("status", self.status_command))
         self.application.add_handler(CommandHandler("report", self.report_command))
         self.application.add_handler(CommandHandler("analyze", self.analyze_command))
+        
+        # 添加按钮处理器
+        self.application.add_handler(CallbackQueryHandler(self.button_handler))
         
         # 添加消息处理器
         self.application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.message_handler))

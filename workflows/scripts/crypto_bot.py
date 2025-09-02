@@ -710,7 +710,7 @@ class Crypto24hMonitor:
     def _check_regular_analysis(self):
         """检查常规分析时机"""
         current_time = int(time.time())
-        analysis_interval = self.config.get('触发条件', {}).get('常规分析间隔', 600)
+        analysis_interval = self.config.get('触发条件', {}).get('常规分析间隔', 900)
         
         for symbol in self.primary_symbols:
             last_analysis = self.last_analysis_time.get(symbol, 0)

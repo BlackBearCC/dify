@@ -46,6 +46,9 @@ class CryptoTelegramBot:
         # 支持的币种（从配置中获取）
         self.supported_symbols = crypto_monitor.all_symbols
         
+        # 交易确认状态管理
+        self.pending_trades = {}  # 存储待确认的交易
+        
     def _create_main_menu(self):
         """创建主菜单键盘"""
         keyboard = [

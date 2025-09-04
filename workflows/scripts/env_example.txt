@@ -1,0 +1,25 @@
+# 加密货币监控系统环境配置示例
+# 复制此文件为 .env 并填入您的配置
+
+# Claude API配置
+CLAUDE_API_KEY=your_claude_api_key_here
+CLAUDE_BASE_URL=https://club.claudecode.site
+
+# 豆包/DeepSeek API配置（字节跳动豆包平台）
+DOUBAO_API_KEY=b633a622-b5d0-4f16-a8a9-616239cf15d1
+DOUBAO_BASE_URL=https://ark.cn-beijing.volces.com/api/v3
+
+# Binance API配置
+BINANCE_API_KEY=your_binance_api_key_here
+BINANCE_API_SECRET=your_binance_api_secret_here
+BINANCE_TESTNET=true
+
+# Telegram机器人配置
+TELEGRAM_TOKEN=7516595825:AAHgdjEqJcGvOCojTs7-ZcMuW-G142157jg
+CHAT_ID=YOUR_CHAT_ID
+
+# 使用说明:
+# 1. 将此文件重命名为 .env
+# 2. 填入您的实际API密钥和配置
+# 3. CHAT_ID 是您与机器人对话的Telegram聊天ID
+# 4. 可以通过 @userinfobot 获取您的Chat ID

@@ -1,0 +1,106 @@
+version: 0.3.1
+kind: app
+app:
+  name: Simple LLM Chat
+  mode: workflow
+  icon: 🤖
+  icon_background: '#FFEAD5'
+  description: 简单的LLM对话工作流
+  use_icon_as_answer_icon: false
+dependencies: []
+workflow:
+  conversation_variables: []
+  environment_variables: []
+  features:
+    opening_statement:
+      enabled: true
+      opening_statement: 你好！我是AI助手，有什么可以帮助您的吗？
+    suggested_questions:
+      enabled: true
+      questions:
+        - 请介绍一下自己
+        - 你能帮我做什么？
+        - 今天天气怎么样？
+    speech_to_text:
+      enabled: false
+    text_to_speech:
+      enabled: false
+      language: zh-Hans
+      voice: alloy
+    citation:
+      enabled: false
+    moderation:
+      enabled: false
+  graph:
+    nodes:
+      - id: start
+        type: start
+        data:
+          title: 开始
+          desc: 工作流开始
+          type: start
+          variables:
+            - variable: query
+              label: 用户问题
+              description: 用户输入的问题
+              type: text-input
+              required: true
+              hide: false
+              max_length: 1000
+              options: []
+              allowed_file_types: []
+              allowed_file_extensions: []
+              allowed_file_upload_methods: []
+        position:
+          x: 80
+          y: 200
+      - id: llm-node
+        type: llm
+        data:
+          title: LLM问答
+          desc: 使用LLM回答用户问题
+          type: llm
+          model:
+            provider: openai
+            name: gpt-3.5-turbo
+            mode: chat
+            completion_params:
+              temperature: 0.7
+              max_tokens: 1000
+              top_p: 1.0
+              frequency_penalty: 0.0
+              presence_penalty: 0.0
+          prompt_template:
+            - role: system
+              text: 你是一个有用的AI助手，请友好且专业地回答用户的问题。
+            - role: user
+              text: "{{#start.query#}}"
+          memory:
+            enabled: false
+          vision:
+            enabled: false
+          jinja2_variables: []
+        position:
+          x: 350
+          y: 200
+      - id: answer-node
+        type: answer
+        data:
+          title: 回答
+          desc: 输出LLM的回答
+          type: answer
+          answer: "{{#llm-node.text#}}"
+        position:
+          x: 620
+          y: 200
+    edges:
+      - id: start-llm-node
+        source: start
+        target: llm-node
+      - id: llm-node-answer-node
+        source: llm-node
+        target: answer-node
+    viewport:
+      x: 0
+      y: 0
+      zoom: 1

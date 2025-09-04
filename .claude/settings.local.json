@@ -1,0 +1,28 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(docker logs:*)",
+      "Bash(python:*)",
+      "WebSearch",
+      "WebFetch(domain:docs.coingecko.com)",
+      "Bash(dir:*)",
+      "WebFetch(domain:www.coingecko.com)",
+      "WebFetch(domain:www.tokenmetrics.com)",
+      "WebFetch(domain:alternative.me)",
+      "WebFetch(domain:docs.coinglass.com)",
+      "WebFetch(domain:www.coinglass.com)",
+      "WebFetch(domain:metals-api.com)",
+      "WebFetch(domain:www.goldapi.io)",
+      "WebFetch(domain:www.gold-api.com)",
+      "WebFetch(domain:api-ninjas.com)",
+      "WebFetch(domain:farside.co.uk)",
+      "WebFetch(domain:sosovalue.com)",
+      "Bash(pip install schedule pyyaml)",
+      "Bash(del crypto_bot.db)",
+      "Read(/C:\\Users\\TYZS\\PycharmProjects\\dify\\workflows\\scripts/**)",
+      "Read(/C:\\Users\\TYZS\\PycharmProjects\\dify\\workflows\\scripts/**)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

@@ -108,10 +108,10 @@ API配置:
   # 分析师专用模型配置
   分析师模型:
     技术分析师:
-      提供商: "claude"     # claude | doubao | deepseek
-      模型: "claude-sonnet-4-20250514"
-      # 提供商: "doubao"
-      # 模型: "doubao-1.6"
+      # 提供商: "claude"     # claude | doubao | deepseek
+      # 模型: "claude-sonnet-4-20250514"
+      提供商: "doubao"
+      模型: "doubao-1.6"
       最大令牌: 2000
       温度: 0.3          # 技术分析需要更精确
       
@@ -128,10 +128,10 @@ API配置:
       温度: 0.5
       
     宏观分析师:
-      提供商: "claude"
-      模型: "claude-sonnet-4-20250514"
-      # 提供商: "doubao"
-      # 模型: "doubao-1.6"
+      # 提供商: "claude"
+      # 模型: "claude-sonnet-4-20250514"
+      提供商: "doubao"
+      模型: "doubao-1.6"
       最大令牌: 1500
       温度: 0.6
       
@@ -148,10 +148,10 @@ API配置:
       温度: 0.5
       
     永续交易员:
-      提供商: "claude"
-      模型: "claude-sonnet-4-20250514"
-      # 提供商: "doubao"
-      # 模型: "doubao-1.6"
+      # 提供商: "claude"
+      # 模型: "claude-sonnet-4-20250514"
+      提供商: "doubao"
+      模型: "doubao-1.6"
       最大令牌: 2000
       温度: 0.2          # 交易决策需要更保守
   

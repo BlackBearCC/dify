@@ -44,7 +44,9 @@ class CryptoTelegramBot:
         }
         
         # 支持的币种（从配置中获取）
-        self.supported_symbols = crypto_monitor.all_symbols
+        primary_symbols = getattr(crypto_monitor.settings.monitor, 'primary_symbols', []) or []
+        secondary_symbols = getattr(crypto_monitor.settings.monitor, 'secondary_symbols', []) or []
+        self.supported_symbols = primary_symbols + secondary_symbols
         
         # 交易确认状态管理
         self.pending_trades = {}  # 存储待确认的交易

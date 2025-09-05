@@ -87,16 +87,18 @@ class LLMClient:
             else:
                 self.endpoint_id = self.model  # 如果直接提供endpoint ID
     
-    def call(self, prompt: str, 
+    def call(self, system_prompt_or_full_prompt: str, 
+             user_message: Optional[str] = None,
              agent_name: str = "Assistant",
              max_tokens: int = 2000,
              temperature: float = 0.7,
              stream: bool = True) -> str:
         """
-        调用LLM API的统一接口
+        调用LLM API的统一接口 - 支持分离的系统提示和用户消息
         
         Args:
-            prompt: 输入提示
+            system_prompt_or_full_prompt: 系统提示词，如果user_message为None，则作为完整提示
+            user_message: 用户消息（可选），如果提供则与system_prompt分离
             agent_name: 代理名称（用于日志）
             max_tokens: 最大token数
             temperature: 温度参数
@@ -114,23 +116,35 @@ class LLMClient:
         
         try:
             if self.provider == LLMProvider.CLAUDE:
-                return self._call_claude_api(prompt, agent_name, max_tokens, stream)
+                return self._call_claude_api(system_prompt_or_full_prompt, user_message, agent_name, max_tokens, stream)
             else:
-                return self._call_doubao_api(prompt, agent_name, max_tokens, temperature, stream)
+                return self._call_doubao_api(system_prompt_or_full_prompt, user_message, agent_name, max_tokens, temperature, stream)
                 
         except Exception as e:
             error_msg = f"❌ [{agent_name}] {self.provider.value}调用失败: {e}"
             print(error_msg, flush=True)
             return error_msg
     
-    def _call_claude_api(self, prompt: str, agent_name: str, max_tokens: int, stream: bool) -> str:
-        """调用Claude API"""
-        payload = {
-            "model": self.model,
-            "messages": [{"role": "user", "content": prompt}],
-            "max_tokens": max_tokens,
-            "stream": stream
-        }
+    def _call_claude_api(self, system_prompt_or_full_prompt: str, user_message: Optional[str], 
+                         agent_name: str, max_tokens: int, stream: bool) -> str:
+        """调用Claude API - 支持分离的系统提示和用户消息"""
+        if user_message is not None:
+            # 分离模式：系统提示 + 用户消息
+            payload = {
+                "model": self.model,
+                "system": system_prompt_or_full_prompt,
+                "messages": [{"role": "user", "content": user_message}],
+                "max_tokens": max_tokens,
+                "stream": stream
+            }
+        else:
+            # 兼容模式：单个完整提示
+            payload = {
+                "model": self.model,
+                "messages": [{"role": "user", "content": system_prompt_or_full_prompt}],
+                "max_tokens": max_tokens,
+                "stream": stream
+            }
         
         headers = {
             "x-api-key": self.api_key,
@@ -139,11 +153,22 @@ class LLMClient:
         
         return self._make_request(payload, headers, agent_name, stream)
     
-    def _call_doubao_api(self, prompt: str, agent_name: str, max_tokens: int, temperature: float, stream: bool) -> str:
-        """调用豆包/Kimi/DeepSeek API"""
+    def _call_doubao_api(self, system_prompt_or_full_prompt: str, user_message: Optional[str], 
+                         agent_name: str, max_tokens: int, temperature: float, stream: bool) -> str:
+        """调用豆包/Kimi/DeepSeek API - 支持分离的系统提示和用户消息"""
+        if user_message is not None:
+            # 分离模式：系统提示 + 用户消息  
+            messages = [
+                {"role": "system", "content": system_prompt_or_full_prompt},
+                {"role": "user", "content": user_message}
+            ]
+        else:
+            # 兼容模式：单个完整提示
+            messages = [{"role": "user", "content": system_prompt_or_full_prompt}]
+            
         payload = {
             "model": self.endpoint_id,  # 使用endpoint ID
-            "messages": [{"role": "user", "content": prompt}],
+            "messages": messages,
             "max_tokens": max_tokens,
             "temperature": temperature,
             "stream": stream

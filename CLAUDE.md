@@ -178,3 +178,161 @@ pnpm test                         # Run Jest tests
 - **Preserve original behavior** rather than "improving" it
 - **Fail explicitly** rather than returning defaults
 - **Keep it simple** rather than over-engineering
+
+## Financial Data Development Rules
+
+### Core Principles for Financial Code
+
+#### 1. **Data Accuracy is Paramount**
+- **真实数据优先**: Only use real data from verified sources
+- **不要虚构数据**: Never create fake estimates or multiply real data arbitrarily
+- **明确标注估算**: If estimation is required, clearly mark it as such
+- **数据来源透明**: Always specify data sources and their limitations
+
+#### 2. **Code Simplicity Requirements** 
+- **变量名要简单**: Use simple, clear variable names like `price`, `volume`, `data`
+- **避免复杂抽象**: Don't create unnecessary managers, engines, or abstract classes
+- **直接实现功能**: Implement features directly without over-engineering
+- **一个功能一个文件**: Keep related functionality in single, focused files
+
+#### 3. **Financial Data Integrity**
+- **不要估算周月数据**: Never multiply daily data by 7 or 30 for weekly/monthly estimates
+- **显示实际可得数据**: Show only what data is actually available
+- **API限制要说明**: Clearly state when data is unavailable due to API limitations
+- **错误要明确报告**: Report data collection failures explicitly
+
+#### 4. **Code Structure Standards**
+```python
+# ✅ GOOD - Simple and clear
+price = ticker.get_price()
+volume = ticker.get_volume()
+if price > 100:
+    return "high"
+
+# ❌ BAD - Over-complicated
+financial_data_processor = FinancialDataProcessingEngine()
+market_metrics_analyzer = MarketMetricsAnalysisManager()
+price_threshold_configuration = PriceThresholdConfigurationHandler()
+```
+
+#### 5. **Variable Naming Rules**
+- **简单英文名**: `price`, `volume`, `data`, `result`
+- **避免长描述性名称**: Not `comprehensive_market_data_collection_result`
+- **直观易懂**: Code should be readable by any developer
+- **不要缩写**: Use `price` not `prc`, `data` not `dt`
+
+#### 6. **Function Design Rules**
+- **功能单一**: Each function does one thing well
+- **参数简单**: Minimal parameters, clear types
+- **返回值明确**: Return what you promise to return
+- **错误处理直接**: Raise exceptions for failures
+
+### Anti-Patterns for Financial Code
+
+#### ❌ **Never Do These:**
+- Create weekly/monthly estimates by multiplying daily data
+- Use complex class hierarchies for simple data operations
+- Hide data limitations behind "smart defaults"
+- Name variables like `comprehensive_etf_data_aggregation_result`
+- Create managers for simple API calls
+- Estimate financial flows without real data
+
+#### ❌ **Avoid These Patterns:**
+```python
+# DON'T - Over-engineered
+class FinancialDataAggregationManager:
+    def __init__(self):
+        self.comprehensive_data_processor = DataProcessorEngine()
+        
+# DON'T - Fake estimates  
+weekly_flow = daily_flow * 7  # This is wrong!
+
+# DON'T - Complex variable names
+bitcoin_etf_comprehensive_flow_analysis_result = get_data()
+```
+
+#### ✅ **Do These Instead:**
+```python
+# DO - Simple and direct
+def get_etf_data():
+    data = api.fetch_etf_prices()
+    return data
+
+# DO - Clear limitations
+def get_weekly_flow():
+    # Weekly flow data not available from this API
+    raise NotImplementedError("Weekly flow data not supported")
+
+# DO - Simple names
+etf_data = get_etf_data()
+price = etf_data['price']
+```
+
+## Crypto Monitor Configuration Rules
+
+### Configuration File Management
+
+#### 1. **Master Configuration File**
+- **配置文件路径**: `C:\Users\TYZS\PycharmProjects\dify\workflows\scripts\crypto_monitor_project\config\crypto_monitor_config.yaml`
+- **配置驱动开发**: All important variables, parameters, and settings MUST be stored in this YAML file
+- **代码中禁止硬编码**: Never hardcode crypto symbols, intervals, thresholds, or any business parameters in Python code
+- **动态配置加载**: Code should read configuration at runtime and respect changes
+
+#### 2. **Configuration Usage Requirements**
+```python
+# ✅ GOOD - Read from configuration
+major_symbols = self.settings.monitor.primary_symbols + self.settings.monitor.secondary_symbols
+
+# ❌ BAD - Hardcoded values
+major_symbols = ['BTCUSDT', 'ETHUSDT', 'SOLUSDT']  # DON'T DO THIS!
+```
+
+#### 3. **Important Parameters to Configure**
+- **监控币种**: `监控币种.主要币种` and `监控币种.次要币种`
+- **技术指标参数**: RSI periods, MACD settings, MA periods
+- **触发条件**: Analysis intervals, thresholds, cooldown times
+- **风险管理**: Position sizes, leverage, stop-loss/take-profit
+- **API配置**: Model selections, timeouts, retry counts
+- **交易参数**: Order types, minimum quantities, slippage
+
+#### 4. **Configuration Anti-Patterns**
+- ❌ Hardcoding crypto symbols in data collection methods
+- ❌ Fixed intervals that ignore configuration settings
+- ❌ Embedded thresholds in business logic
+- ❌ Model selections hardcoded in analyst classes
+- ❌ API endpoints or timeouts not configurable
+
+#### 5. **Dynamic Configuration Loading**
+```python
+# ✅ GOOD - Dynamic configuration usage
+def get_monitoring_symbols(self):
+    return {
+        'primary_symbols': self.settings.monitor.primary_symbols or [],
+        'secondary_symbols': self.settings.monitor.secondary_symbols or []
+    }
+
+# ✅ GOOD - Configurable thresholds
+rsi_overbought = self.settings.indicators.rsi.overbought_line
+rsi_oversold = self.settings.indicators.rsi.oversold_line
+```
+
+#### 6. **Configuration Validation Rules**
+- All configuration changes should be validated at startup
+- Invalid symbols should be rejected with clear error messages
+- Parameter ranges should be checked (e.g., RSI period > 0)
+- Required fields should have validation
+
+### Code Quality Checklist
+
+Before submitting crypto monitor code:
+- [ ] All crypto symbols read from configuration file
+- [ ] All intervals and thresholds configurable
+- [ ] No hardcoded business parameters in Python code
+- [ ] Configuration changes reflected immediately
+- [ ] All variable names are simple and clear
+- [ ] No fake estimates or arbitrary multiplications
+- [ ] Data sources are clearly documented
+- [ ] Error cases are handled explicitly
+- [ ] Functions are small and focused
+- [ ] No unnecessary abstractions or managers
+- [ ] Financial accuracy is maintained

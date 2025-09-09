@@ -38,6 +38,61 @@ class FundamentalAnalyst(BaseAnalyst):
         """
         return self.prompt_manager.get_fundamental_analysis_prompt()
     
+    def analyze_fundamental_data(self, symbol: str, data_collector) -> str:
+        """
+        基本面分析 - 分离系统提示词与实时数据
+        
+        Args:
+            symbol: 币种符号
+            data_collector: 数据收集器
+            
+        Returns:
+            str: 基本面分析结果
+        """
+        try:
+            # 1. 获取系统提示词
+            system_prompt = self.get_prompt_template()
+            
+            # 2. 构建基本面数据
+            user_message = self._build_fundamental_market_data(symbol, data_collector)
+            
+            # 3. 调用LLM（分离模式）
+            if self.llm_client:
+                if hasattr(self.llm_client, 'call'):
+                    return self.llm_client.call(system_prompt, user_message=user_message, agent_name='基本面分析师')
+                else:
+                    # 兼容旧接口
+                    full_prompt = f"{system_prompt}\n\n{user_message}"
+                    return self.llm_client(full_prompt)
+            else:
+                return "❌ 基本面分析师: LLM客户端未初始化"
+                
+        except Exception as e:
+            return f"❌ 基本面分析失败: {str(e)}"
+    
+    def _build_fundamental_market_data(self, symbol: str, data_collector) -> str:
+        """构建基本面市场数据"""
+        try:
+            current_price = data_collector.get_current_price(symbol)
+            stats = data_collector.binance_client.get_24hr_stats(symbol)
+            
+            lines = [f"=== {symbol.replace('USDT', '')} 基本面数据 ==="]
+            
+            if current_price:
+                lines.append(f"当前价格: ${current_price:.4f}")
+            
+            if stats:
+                lines.extend([
+                    f"24H变化: {stats.get('price_change_percent', 0):.2f}%",
+                    f"24H成交量: {stats.get('volume', 0):,.0f}",
+                    f"24H最高: ${stats.get('high_price', 0):.4f}",
+                    f"24H最低: ${stats.get('low_price', 0):.4f}"
+                ])
+            
+            return '\n'.join(lines)
+        except Exception:
+            return f"获取{symbol}基本面数据失败"
+
     def analyze(self, context: Dict[str, Any]) -> str:
         """
         执行基本面分析

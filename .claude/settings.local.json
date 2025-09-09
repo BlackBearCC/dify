@@ -42,7 +42,12 @@
       "Read(/C:\\Users\\TYZS\\PycharmProjects\\dify\\workflows\\scripts\\crypto_monitor_project/**)",
       "Read(/C:\\Users\\TYZS\\PycharmProjects\\dify\\workflows\\scripts\\crypto_monitor_project/**)",
       "Bash(set PYTHONIOENCODING=utf-8)",
-      "WebFetch(domain:www.volcengine.com)"
+      "WebFetch(domain:www.volcengine.com)",
+      "Bash(for file in services/*.py)",
+      "Bash(do echo \"Testing $file:\")",
+      "Bash(done)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "WebFetch(domain:github.com)"
     ],
     "deny": [],
     "ask": []

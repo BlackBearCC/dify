@@ -114,6 +114,26 @@ class DataCollector:
         print("🔥 获取热门币种数据...")
         return self.coingecko_client.get_trending_coins()
     
+    def collect_fear_greed_index(self) -> Optional[Dict[str, Any]]:
+        """
+        收集恐贪指数数据
+        
+        Returns:
+            Optional[Dict[str, Any]]: 恐贪指数数据
+        """
+        print("😱 获取恐贪指数数据...")
+        return self.coingecko_client.get_fear_greed_index()
+    
+    def collect_major_coins_performance(self) -> Optional[List[Dict[str, Any]]]:
+        """
+        收集主流币种表现数据
+        
+        Returns:
+            Optional[List[Dict[str, Any]]]: 主流币种表现数据
+        """
+        print("💎 获取主流币种表现数据...")
+        return self.coingecko_client.get_major_coins_performance()
+    
     def get_current_price(self, symbol: str) -> Optional[float]:
         """
         获取当前价格

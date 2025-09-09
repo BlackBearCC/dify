@@ -154,6 +154,66 @@ class MarketAnalyst(BaseAnalyst):
         
         return '\n'.join(context_parts)
     
+    def analyze_market_sentiment(self, global_data: Dict[str, Any], trending_data: list) -> str:
+        """
+        分析市场情绪 - 使用系统提示词与实时数据分离模式
+        
+        Args:
+            global_data: 全球市场数据
+            trending_data: 热门币种数据
+            
+        Returns:
+            str: 市场情绪分析结果
+        """
+        try:
+            # 获取系统提示词
+            system_prompt = self.prompt_manager.get_market_sentiment_prompt()
+            
+            # 构建用户消息
+            user_message = self._format_market_sentiment_message(global_data, trending_data)
+            
+            # 调用LLM（分离模式）
+            if self.llm_client:
+                if hasattr(self.llm_client, 'call'):
+                    return self.llm_client.call(system_prompt, user_message=user_message, agent_name='市场分析师')
+                else:
+                    # 兼容旧接口
+                    full_prompt = f"{system_prompt}\n\n{user_message}"
+                    return self.llm_client(full_prompt)
+            else:
+                return "❌ 市场分析师: LLM客户端未初始化"
+                
+        except Exception as e:
+            return f"❌ 市场情绪分析失败: {str(e)}"
+    
+    def _format_market_sentiment_message(self, global_data: Dict[str, Any], trending_data: list) -> str:
+        """格式化市场情绪分析数据为用户消息"""
+        message_parts = ["请基于以下多维度数据分析当前加密货币市场情绪：\n"]
+        
+        # 全球市场数据
+        message_parts.append("=== 全球市场数据 ===")
+        message_parts.append(self._format_global_data(global_data))
+        message_parts.append("")
+        
+        # 恐贪指数数据
+        message_parts.append("=== 恐贪指数 ===")
+        message_parts.append("暂无恐贪指数数据")
+        message_parts.append("")
+        
+        # 热门搜索趋势
+        message_parts.append("=== 热门搜索趋势 ===")
+        message_parts.append(self._format_trending_data(trending_data))
+        message_parts.append("")
+        
+        # 主流币种表现
+        message_parts.append("=== 主流币种表现 ===")
+        message_parts.append("需要具体币种数据进行分析")
+        message_parts.append("")
+        
+        message_parts.append("请提供客观专业的市场情绪评估，重点关注多个指标之间的相互验证。")
+        
+        return "\n".join(message_parts)
+
     def assess_market_sentiment(self, indicators: Dict[str, Any], global_data: Dict[str, Any]) -> str:
         """
         评估市场情绪

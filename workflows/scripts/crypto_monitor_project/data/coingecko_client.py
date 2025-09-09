@@ -134,8 +134,30 @@ class CoinGeckoClient:
         Returns:
             Optional[Dict[str, Any]]: 恐慌贪婪指数数据，失败时返回None
         """
-        # CoinGecko没有直接的恐慌贪婪指数API，这里可以集成其他数据源
-        # 暂时返回None，后续可以集成alternative.me的API
+        try:
+            fng_url = "https://api.alternative.me/fng/"
+            response = requests.get(fng_url, timeout=10)
+            
+            if response.status_code == 200:
+                fng_data = response.json()
+                if 'data' in fng_data and len(fng_data['data']) > 0:
+                    latest_fng = fng_data['data'][0]
+                    result = {
+                        'value': int(latest_fng.get('value', 0)),
+                        'classification': latest_fng.get('value_classification', '未知'),
+                        'timestamp': latest_fng.get('timestamp', '未知'),
+                        'time_until_update': latest_fng.get('time_until_update', '未知')
+                    }
+                    print(f"获取恐贪指数成功: {result['value']} ({result['classification']})")
+                    return result
+                else:
+                    print("恐贪指数数据格式异常")
+            else:
+                print(f"恐贪指数API返回错误: {response.status_code}")
+                
+        except Exception as e:
+            print(f"获取恐贪指数失败: {e}")
+            
         return None
     
     def get_trending_coins(self) -> Optional[List[Dict[str, Any]]]:
@@ -177,6 +199,54 @@ class CoinGeckoClient:
         except Exception as e:
             print(f"❌ 获取热门币种失败: {e}")
             return None
+    
+    def get_major_coins_performance(self) -> Optional[List[Dict[str, Any]]]:
+        """
+        获取主流币种表现数据
+        
+        Returns:
+            Optional[List[Dict[str, Any]]]: 主流币种表现数据，失败时返回None
+        """
+        self._wait_for_rate_limit()
+        
+        major_coins = ['bitcoin', 'ethereum', 'ripple', 'binancecoin', 'cardano', 'solana']
+        url = f"{self.base_url}/coins/markets"
+        params = {
+            'vs_currency': 'usd',
+            'ids': ','.join(major_coins),
+            'order': 'market_cap_desc',
+            'per_page': 6,
+            'page': 1,
+            'sparkline': 'false',
+            'price_change_percentage': '24h'
+        }
+        
+        try:
+            response = requests.get(url, params=params, timeout=15)
+            response.raise_for_status()
+            
+            coins_data = response.json()
+            if coins_data:
+                major_performance = []
+                for coin in coins_data:
+                    major_performance.append({
+                        'id': coin.get('id'),
+                        'symbol': coin.get('symbol'),
+                        'name': coin.get('name'),
+                        'current_price': coin.get('current_price', 0),
+                        'price_change_24h': coin.get('price_change_percentage_24h', 0),
+                        'market_cap': coin.get('market_cap', 0),
+                        'total_volume': coin.get('total_volume', 0)
+                    })
+                print("获取主流币种表现数据成功")
+                return major_performance
+            else:
+                print("主流币种数据格式异常")
+                
+        except Exception as e:
+            print(f"获取主流币种表现失败: {e}")
+            
+        return None
     
     def get_market_overview(self, vs_currency: str = 'usd', per_page: int = 10) -> Optional[List[Dict[str, Any]]]:
         """

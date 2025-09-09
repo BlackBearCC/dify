@@ -18,10 +18,16 @@ class BinanceClient:
         """初始化币安客户端"""
         self.settings = settings
         
-        # API密钥配置
+        # API密钥配置 - 公开数据不需要API key
         api_key = os.getenv('BINANCE_API_KEY')
         api_secret = os.getenv('BINANCE_API_SECRET') 
         testnet = os.getenv('BINANCE_TESTNET', 'false').lower() == 'true'
+        
+        # 如果没有配置API密钥，使用公开客户端（仅限公开数据）
+        if not api_key or not api_secret:
+            print("⚠️ 未配置Binance API密钥，仅能获取公开市场数据")
+            api_key = None
+            api_secret = None
         
         # 多API端点容错机制
         self.api_endpoints = [

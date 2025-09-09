@@ -38,6 +38,66 @@ class ChiefAnalyst(BaseAnalyst):
         """
         return self.prompt_manager.get_chief_analysis_prompt()
     
+    def generate_comprehensive_analysis(self, symbol: str, technical_analysis: str, 
+                                      sentiment_analysis: str, fundamental_analysis: str, 
+                                      macro_analysis: str) -> str:
+        """
+        首席分析师综合分析 - 分离系统提示词与实时数据
+        
+        Args:
+            symbol: 币种符号
+            technical_analysis: 技术分析结果
+            sentiment_analysis: 市场情绪分析结果
+            fundamental_analysis: 基本面分析结果
+            macro_analysis: 宏观分析结果
+            
+        Returns:
+            str: 综合分析结果
+        """
+        try:
+            # 1. 获取系统提示词
+            system_prompt = self.get_prompt_template()
+            
+            # 2. 构建用户消息
+            user_message = self._format_chief_analysis_message(
+                symbol, technical_analysis, sentiment_analysis, fundamental_analysis, macro_analysis
+            )
+            
+            # 3. 调用LLM（分离模式）
+            if self.llm_client:
+                if hasattr(self.llm_client, 'call'):
+                    return self.llm_client.call(system_prompt, user_message=user_message, agent_name='首席分析师')
+                else:
+                    # 兼容旧接口
+                    full_prompt = f"{system_prompt}\n\n{user_message}"
+                    return self.llm_client(full_prompt)
+            else:
+                return "❌ 首席分析师: LLM客户端未初始化"
+                
+        except Exception as e:
+            return f"❌ 首席分析师综合分析失败: {str(e)}"
+    
+    def _format_chief_analysis_message(self, symbol: str, technical_analysis: str, 
+                                     sentiment_analysis: str, fundamental_analysis: str, 
+                                     macro_analysis: str) -> str:
+        """格式化首席分析师数据为用户消息"""
+        message_parts = [
+            f"请整合以下四个专业代理的分析报告，提供针对{symbol}的全面投资建议：\n",
+            "=== 技术分析师报告 ===",
+            technical_analysis,
+            "\n=== 市场分析师报告 ===",
+            sentiment_analysis,
+            "\n=== 基本面分析师报告 ===", 
+            fundamental_analysis,
+            "\n=== 宏观分析师报告 ===",
+            macro_analysis,
+            f"\n请基于技术面、市场情绪、基本面和宏观面的综合分析，提供针对{symbol}的全面投资建议。",
+            "注意平衡各方观点，给出客观专业的结论，重点关注各维度分析的一致性和分歧点。",
+            f"请提供具体、可操作的{symbol}投资建议，避免空泛的表述。"
+        ]
+        
+        return "\n".join(message_parts)
+
     def analyze(self, context: Dict[str, Any]) -> str:
         """
         执行综合分析

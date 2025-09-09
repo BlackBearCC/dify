@@ -336,3 +336,258 @@ Before submitting crypto monitor code:
 - [ ] Functions are small and focused
 - [ ] No unnecessary abstractions or managers
 - [ ] Financial accuracy is maintained
+
+## Dify Workflow DSL Development Rules
+
+### DSL文件格式规范
+
+#### 1. **基本文件结构**
+Dify工作流DSL文件必须遵循以下YAML格式结构：
+
+```yaml
+app:
+  description: '应用描述'
+  icon: 🤖  # 表情符号图标
+  icon_background: '#4F46E5'  # 背景颜色代码
+  mode: workflow  # 必须是workflow模式
+  name: 应用名称
+
+workflow:
+  environment_variables: []  # 环境变量数组
+  features:  # 功能配置
+    file_upload:
+      image:
+        enabled: false
+        number_limits: 3
+        transfer_methods: [local_file, remote_url]
+    opening_statement: |
+      多行开场白内容
+    retriever_resource:
+      enabled: false
+    suggested_questions:
+      - 建议问题1
+      - 建议问题2
+    # 其他功能配置...
+  graph:  # 工作流图结构
+    edges: []  # 边连接
+    nodes: []  # 节点定义
+```
+
+#### 2. **节点配置规范**
+
+##### 开始节点 (Start Node)
+```yaml
+- data:
+    desc: 工作流开始
+    selected: false
+    title: 开始
+    type: start
+    variables:  # 输入变量定义
+    - description: 变量描述
+      label: 显示标签
+      max_length: 4000
+      options: []  # 选择类型时的选项
+      required: true
+      type: paragraph  # 类型: text-input, paragraph, select等
+      variable: variable_name
+  height: 118
+  id: 'unique_node_id'  # 必须是字符串格式
+  position: {x: 80, y: 282}
+  type: custom
+  width: 244
+```
+
+##### LLM节点 (LLM Node)
+```yaml
+- data:
+    context:
+      enabled: false
+      variable_selector: []
+    desc: 使用大语言模型处理
+    model:
+      completion_params:
+        frequency_penalty: 0.1
+        max_tokens: 2048
+        presence_penalty: 0.1
+        temperature: 0.7
+        top_p: 0.95
+      mode: chat
+      name: gpt-3.5-turbo
+      provider: openai
+    prompt_template:
+    - id: unique_prompt_id
+      role: system
+      text: |
+        系统提示词内容
+        使用变量引用: {{#node_id.variable_name#}}
+    - id: unique_user_prompt_id
+      role: user
+      text: '{{#start_node_id.input_variable#}}'
+    selected: false
+    title: LLM
+    type: llm
+    variables: []
+    vision:
+      enabled: false
+  height: 98
+  id: 'llm_node_id'
+  position: {x: 384, y: 282}
+  type: custom
+  width: 244
+```
+
+##### 结束节点 (End Node)
+```yaml
+- data:
+    desc: 输出最终结果
+    outputs:
+    - value_selector: ['llm_node_id', 'text']
+      variable: result
+    selected: false
+    title: 结束
+    type: end
+  height: 90
+  id: 'end_node_id'
+  position: {x: 688, y: 282}
+  type: custom
+  width: 244
+```
+
+#### 3. **边连接配置 (Edges)**
+```yaml
+edges:
+- data:
+    isInIteration: false
+    sourceType: start
+    targetType: llm
+  id: source_id-source-target_id-target
+  source: 'source_node_id'
+  sourceHandle: source
+  target: 'target_node_id'
+  targetHandle: target
+  type: custom
+  zIndex: 0
+```
+
+#### 4. **变量引用语法**
+- **正确格式**: `{{#node_id.variable_name#}}`
+- **系统变量**: 使用预定义的系统变量名
+- **节点输出**: 引用其他节点的输出结果
+
+#### 5. **重要配置要求**
+
+##### 必须字段检查清单:
+- [ ] 所有节点ID必须是字符串格式 (用引号包围)
+- [ ] 每个节点必须有position坐标
+- [ ] 每个节点必须有height和width
+- [ ] prompt_template中每个条目必须有唯一的id
+- [ ] edges必须正确连接所有节点
+- [ ] 变量引用必须使用正确的语法格式
+
+##### 功能配置规范:
+```yaml
+features:
+  file_upload:
+    image:
+      enabled: false  # 明确禁用不需要的功能
+      number_limits: 3
+      transfer_methods: [local_file, remote_url]
+  opening_statement: |
+    使用多行字符串格式
+    支持换行和格式化
+  retriever_resource:
+    enabled: false  # 明确设置状态
+  sensitive_word_avoidance:
+    enabled: false
+  speech_to_text:
+    enabled: false
+  suggested_questions:
+    - 问题1
+    - 问题2
+  suggested_questions_after_answer:
+    enabled: false
+  text_to_speech:
+    enabled: false
+```
+
+#### 6. **常见错误避免**
+
+##### ❌ 不要这样做:
+```yaml
+# 错误的版本声明
+version: 0.3.1
+kind: app
+
+# 错误的节点ID格式
+id: 1736424593742  # 数字格式
+
+# 错误的变量引用
+text: "{{start.user_input}}"  # 缺少#符号
+
+# 错误的环境变量格式
+environment_variables:
+- name: var_name
+  type: string  # 应该是value_type
+  value: value
+```
+
+##### ✅ 正确做法:
+```yaml
+# 正确的基本结构 - 不需要version和kind
+
+# 正确的节点ID格式
+id: '1736424593742'  # 字符串格式
+
+# 正确的变量引用
+text: "{{#1736424593742.user_input#}}"
+
+# 正确的环境变量格式
+environment_variables: []  # 简化为空数组或省略
+```
+
+#### 7. **DSL测试和验证**
+
+##### 导入前检查:
+1. **YAML语法验证**: 确保文件是有效的YAML格式
+2. **必填字段检查**: 所有必需的字段都已填写
+3. **ID唯一性验证**: 所有节点和边的ID都是唯一的
+4. **引用完整性**: 所有变量引用都指向存在的节点和变量
+5. **图结构完整**: 节点之间的连接形成完整的工作流
+
+##### 导入后验证:
+1. **功能完整性**: 所有定义的功能都能正常工作
+2. **变量传递**: 数据能正确在节点间传递
+3. **LLM响应**: 模型调用能返回预期结果
+4. **错误处理**: 异常情况能得到适当处理
+
+### DSL开发最佳实践
+
+#### 1. **设计原则**
+- **简单优于复杂**: 优先使用基础节点而非复杂节点
+- **清晰的数据流**: 确保数据在节点间的传递路径清晰
+- **合理的错误处理**: 考虑各种异常情况的处理方式
+- **用户体验优化**: 提供有意义的开场白和建议问题
+
+#### 2. **性能优化**
+- **合理的参数设置**: 根据实际需求设置max_tokens等参数
+- **避免冗余处理**: 不要创建不必要的中间节点
+- **缓存机制利用**: 合理利用Dify的内建缓存功能
+
+#### 3. **维护性考虑**
+- **描述性命名**: 节点和变量使用有意义的名称
+- **适当的注释**: 在复杂的prompt中添加说明
+- **版本兼容性**: 确保DSL与目标Dify版本兼容
+
+### 故障排除指南
+
+#### 常见导入错误:
+1. **"missing value type"**: 检查environment_variables的value_type字段
+2. **"invalid node configuration"**: 验证节点的必需字段
+3. **"variable reference error"**: 检查变量引用语法
+4. **"graph validation failed"**: 确保节点连接完整
+
+#### 调试技巧:
+1. **逐步构建**: 从简单的三节点结构开始
+2. **单独测试**: 分别验证每个组件的功能
+3. **日志分析**: 查看Dify后台的错误日志
+4. **参考示例**: 对比成功的DSL文件格式

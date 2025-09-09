@@ -11,7 +11,7 @@
 # 监控币种设置  
 监控币种:
   主要币种:
-    - "BTCUSDT"    # 比特币
+    # - "BTCUSDT"    # 比特币
     - "ETHUSDT"    # 以太坊
     - "DOGEUSDT"    # 币安币
   

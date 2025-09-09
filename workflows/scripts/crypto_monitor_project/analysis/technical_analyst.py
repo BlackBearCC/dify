@@ -4,7 +4,8 @@
 专注于技术指标和价格走势分析
 """
 
-from typing import Dict, Any
+from typing import Dict, Any, List
+import pandas as pd
 from .base_analyst import BaseAnalyst
 from .prompt_manager import PromptManager
 from ..config import Settings
@@ -37,6 +38,103 @@ class TechnicalAnalyst(BaseAnalyst):
             str: 提示模板
         """
         return self.prompt_manager.get_technical_analysis_prompt()
+    
+    def analyze_kline_data(self, symbol: str, kline_data: List[Dict[str, Any]]) -> str:
+        """
+        技术分析 - 分离系统提示词与实时数据
+        
+        Args:
+            symbol: 币种符号
+            kline_data: K线数据列表
+            
+        Returns:
+            str: 技术分析结果
+        """
+        try:
+            # 1. 获取系统提示词
+            system_prompt = self.get_prompt_template()
+            
+            # 2. 数据验证
+            if not kline_data:
+                raise Exception(f"无法获取{symbol}的K线数据")
+
+            # 3. 计算技术指标
+            df = pd.DataFrame(kline_data)
+            if len(df) < 50:
+                raise Exception(f"数据不足，仅有{len(df)}条数据")
+
+            closes = df['close'].astype(float)
+            df['sma_20'] = closes.rolling(window=20).mean()
+            df['sma_50'] = closes.rolling(window=50).mean()
+            df['rsi'] = self._calculate_rsi(closes)
+            df['macd'], df['macd_signal'] = self._calculate_macd(closes)
+
+            # 4. 构建用户消息
+            recent_data = df.dropna().tail(10)
+            user_message = self._format_technical_data_message(recent_data, symbol)
+            
+            # 5. 调用LLM（分离模式）
+            if self.llm_client:
+                if hasattr(self.llm_client, 'call'):
+                    return self.llm_client.call(system_prompt, user_message=user_message, agent_name='技术分析师')
+                else:
+                    # 兼容旧接口
+                    full_prompt = f"{system_prompt}\n\n{user_message}"
+                    return self.llm_client(full_prompt)
+            else:
+                return "❌ 技术分析师: LLM客户端未初始化"
+                
+        except Exception as e:
+            return f"❌ 技术分析失败: {str(e)}"
+    
+    def _calculate_rsi(self, prices: pd.Series, period: int = 14) -> pd.Series:
+        """计算RSI"""
+        delta = prices.diff()
+        gain = delta.where(delta > 0, 0)
+        loss = (-delta).where(delta < 0, 0)
+        
+        avg_gain = gain.rolling(window=period).mean()
+        avg_loss = loss.rolling(window=period).mean()
+        
+        rs = avg_gain / avg_loss
+        rsi = 100 - (100 / (1 + rs))
+        return rsi
+    
+    def _calculate_macd(self, prices: pd.Series, fast: int = 12, slow: int = 26, signal: int = 9):
+        """计算MACD"""
+        ema_fast = prices.ewm(span=fast).mean()
+        ema_slow = prices.ewm(span=slow).mean()
+        macd_line = ema_fast - ema_slow
+        signal_line = macd_line.ewm(span=signal).mean()
+        return macd_line, signal_line
+    
+    def _format_technical_data_message(self, data_df: pd.DataFrame, symbol: str) -> str:
+        """格式化技术分析数据为用户消息"""
+        message_parts = [
+            f"请分析{symbol}的{self.settings.kline.default_period}K线数据：\n",
+            "最近10个周期的技术指标数据：",
+            "时间戳(time)、开盘价(open)、最高价(high)、最低价(low)、收盘价(close)、成交量(volume)",
+            "20期简单移动平均线(sma_20)、50期简单移动平均线(sma_50)",
+            "相对强弱指数RSI(rsi)、MACD线(macd)、MACD信号线(macd_signal)\n"
+        ]
+        
+        # 添加具体的数据行
+        for _, row in data_df.iterrows():
+            line = (f"时间:{row['timestamp']} | "
+                   f"开盘:{row['open']:.4f} | "
+                   f"最高:{row['high']:.4f} | "
+                   f"最低:{row['low']:.4f} | "
+                   f"收盘:{row['close']:.4f} | "
+                   f"成交量:{row['volume']:.0f} | "
+                   f"SMA20:{row.get('sma_20', 'N/A')} | "
+                   f"SMA50:{row.get('sma_50', 'N/A')} | "
+                   f"RSI:{row.get('rsi', 'N/A')} | "
+                   f"MACD:{row.get('macd', 'N/A')} | "
+                   f"信号线:{row.get('macd_signal', 'N/A')}")
+            message_parts.append(line)
+            
+        message_parts.append("\n请保持简洁专业，重点关注15分钟级别的短期走势。")
+        return "\n".join(message_parts)
     
     def analyze(self, context: Dict[str, Any]) -> str:
         """

@@ -1,0 +1,203 @@
+app:
+  description: '智能LLM助手，支持多种任务类型和个性化回答风格'
+  icon: 🧠
+  icon_background: '#4F46E5'
+  mode: workflow
+  name: 智能LLM助手
+workflow:
+  environment_variables: []
+  features:
+    file_upload:
+      image:
+        enabled: false
+        number_limits: 3
+        transfer_methods:
+        - local_file
+        - remote_url
+    opening_statement: |
+      🧠 欢迎使用智能LLM助手！
+      
+      我可以帮助您：
+      📝 回答各种问题
+      💡 提供创意建议  
+      🔍 分析复杂问题
+      📊 处理数据信息
+      
+      请告诉我您需要什么帮助？
+    retriever_resource:
+      enabled: false
+    sensitive_word_avoidance:
+      enabled: false
+    speech_to_text:
+      enabled: false
+    suggested_questions:
+      - 帮我分析一个复杂问题
+      - 写一篇关于AI的文章
+      - 解释一个技术概念
+      - 给我一些创意建议
+      - 总结一段文字内容
+    suggested_questions_after_answer:
+      enabled: false
+    text_to_speech:
+      enabled: false
+  graph:
+    edges:
+    - data:
+        isInIteration: false
+        sourceType: start
+        targetType: llm
+      id: 1736424593742-source-1736424598201-target
+      source: '1736424593742'
+      sourceHandle: source
+      target: '1736424598201'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInIteration: false
+        sourceType: llm
+        targetType: end
+      id: 1736424598201-source-1736424600123-target
+      source: '1736424598201'
+      sourceHandle: source
+      target: '1736424600123'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    nodes:
+    - data:
+        desc: 工作流开始
+        selected: false
+        title: 开始
+        type: start
+        variables:
+        - description: 用户的问题或需求
+          label: 用户输入
+          max_length: 4000
+          options: []
+          required: true
+          type: paragraph
+          variable: user_input
+        - description: 选择任务类型以获得更好的回答
+          label: 任务类型
+          options:
+          - 问答咨询
+          - 内容创作
+          - 数据分析
+          - 技术支持
+          - 创意思考
+          required: false
+          type: select
+          variable: task_type
+        - description: 选择期望的回复风格
+          label: 回复风格
+          options:
+          - 专业严谨
+          - 通俗易懂
+          - 创意活泼
+          - 简洁明了
+          required: false
+          type: select
+          variable: response_style
+      height: 118
+      id: '1736424593742'
+      position:
+        x: 80
+        y: 282
+      positionAbsolute:
+        x: 80
+        y: 282
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 244
+    - data:
+        context:
+          enabled: false
+          variable_selector: []
+        desc: 使用大语言模型回答用户问题
+        model:
+          completion_params:
+            frequency_penalty: 0.1
+            max_tokens: 2048
+            presence_penalty: 0.1
+            temperature: 0.7
+            top_p: 0.95
+          mode: chat
+          name: gpt-3.5-turbo
+          provider: openai
+        prompt_template:
+        - id: 3a89b9f5-3cc0-4f7d-9b28-f5b2bc8d91c3
+          role: system
+          text: |
+            你是一个专业的AI助手，具备以下特点：
+            1) 准确可靠 2) 友好耐心 3) 逻辑清晰 4) 善于分析
+            
+            用户选择的任务类型：{{#1736424593742.task_type#}}
+            用户选择的回复风格：{{#1736424593742.response_style#}}
+            
+            根据任务类型调整回答风格：
+            - 如果是"问答咨询"：作为专业顾问，仔细分析问题并提供准确建议
+            - 如果是"内容创作"：作为内容创作者，发挥创意并确保内容质量
+            - 如果是"数据分析"：作为数据分析师，用逻辑思维分析并得出结论
+            - 如果是"技术支持"：作为技术专家，提供准确的技术指导
+            - 如果是"创意思考"：作为创意顾问，提供新颖独特的思路
+            
+            根据回复风格调整语言：
+            - 专业严谨：用专业、准确的语言，提供详细分析
+            - 通俗易懂：用简单、易懂的语言，避免专业术语
+            - 创意活泼：用生动、有趣的方式，可以使用比喻和例子
+            - 简洁明了：简洁地回答，突出重点，避免冗长
+            
+            重要指导原则：
+            1. 确保回答准确、有用、相关
+            2. 根据问题复杂度调整详细程度
+            3. 如果不确定，请说明并提供可能方向
+            4. 保持友好、专业的语调
+            5. 必要时提供具体例子或步骤
+        - id: 8b7c9f2e-1c45-4d8f-9e32-a5d6c7b8f9e0
+          role: user
+          text: '{{#1736424593742.user_input#}}'
+        selected: false
+        title: LLM
+        type: llm
+        variables: []
+        vision:
+          enabled: false
+      height: 98
+      id: '1736424598201'
+      position:
+        x: 384
+        y: 282
+      positionAbsolute:
+        x: 384
+        y: 282
+      selected: true
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 244
+    - data:
+        desc: 输出最终结果
+        outputs:
+        - value_selector:
+          - '1736424598201'
+          - text
+          variable: result
+        selected: false
+        title: 结束
+        type: end
+      height: 90
+      id: '1736424600123'
+      position:
+        x: 688
+        y: 282
+      positionAbsolute:
+        x: 688
+        y: 282
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 244

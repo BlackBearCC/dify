@@ -1,0 +1,223 @@
+{
+  "identity": {
+    "name": "universal_sqlite_tools",
+    "author": "Dify Developer",
+    "label": {
+      "en_US": "Universal SQLite Tools",
+      "zh_Hans": "通用SQLite数据库工具"
+    },
+    "description": {
+      "en_US": "Universal SQLite database operations tool for workflow data management",
+      "zh_Hans": "通用SQLite数据库操作工具，用于工作流数据管理"
+    },
+    "icon": "database.svg"
+  },
+  "parameters": [],
+  "tools": [
+    {
+      "name": "insert_data",
+      "label": {
+        "en_US": "Insert Data",
+        "zh_Hans": "插入数据"
+      },
+      "description": {
+        "en_US": "Insert a record into specified table",
+        "zh_Hans": "向指定表插入一条记录"
+      },
+      "parameters": [
+        {
+          "name": "table",
+          "type": "string",
+          "required": true,
+          "label": {
+            "en_US": "Table Name",
+            "zh_Hans": "表名"
+          },
+          "human_description": {
+            "en_US": "Name of the database table to insert data into",
+            "zh_Hans": "要插入数据的数据库表名"
+          },
+          "llm_description": "The name of the SQLite table where data will be inserted. Common tables: topics, workflow_data, user_sessions, configurations",
+          "form": "llm"
+        },
+        {
+          "name": "data",
+          "type": "string",
+          "required": true,
+          "label": {
+            "en_US": "Data JSON",
+            "zh_Hans": "数据JSON"
+          },
+          "human_description": {
+            "en_US": "JSON string containing the data to insert",
+            "zh_Hans": "包含要插入数据的JSON字符串"
+          },
+          "llm_description": "JSON string containing key-value pairs of data to insert. Format: {\"column1\": \"value1\", \"column2\": \"value2\"}",
+          "form": "llm"
+        }
+      ]
+    },
+    {
+      "name": "query_data",
+      "label": {
+        "en_US": "Query Data",
+        "zh_Hans": "查询数据"
+      },
+      "description": {
+        "en_US": "Query records from specified table with conditions",
+        "zh_Hans": "从指定表按条件查询记录"
+      },
+      "parameters": [
+        {
+          "name": "table",
+          "type": "string",
+          "required": true,
+          "label": {
+            "en_US": "Table Name",
+            "zh_Hans": "表名"
+          },
+          "human_description": {
+            "en_US": "Name of the database table to query",
+            "zh_Hans": "要查询的数据库表名"
+          },
+          "llm_description": "The name of the SQLite table to query data from. Common tables: topics, workflow_data, user_sessions, configurations",
+          "form": "llm"
+        },
+        {
+          "name": "conditions",
+          "type": "string",
+          "required": false,
+          "default": "{}",
+          "label": {
+            "en_US": "Query Conditions",
+            "zh_Hans": "查询条件"
+          },
+          "human_description": {
+            "en_US": "JSON string of query conditions",
+            "zh_Hans": "查询条件的JSON字符串"
+          },
+          "llm_description": "JSON string with query conditions. Format: {\"column\": \"value\"}. Use * for wildcards. Empty {} for all records",
+          "form": "llm"
+        },
+        {
+          "name": "limit",
+          "type": "number",
+          "required": false,
+          "default": 10,
+          "label": {
+            "en_US": "Limit",
+            "zh_Hans": "限制数量"
+          },
+          "human_description": {
+            "en_US": "Maximum number of records to return",
+            "zh_Hans": "返回记录的最大数量"
+          },
+          "llm_description": "Maximum number of records to return (1-100)",
+          "form": "llm"
+        },
+        {
+          "name": "order_by",
+          "type": "string",
+          "required": false,
+          "default": "created_at DESC",
+          "label": {
+            "en_US": "Order By",
+            "zh_Hans": "排序方式"
+          },
+          "human_description": {
+            "en_US": "Column and order for sorting results",
+            "zh_Hans": "结果排序的列名和顺序"
+          },
+          "llm_description": "Sort order specification like 'created_at DESC' or 'id ASC'",
+          "form": "llm"
+        }
+      ]
+    },
+    {
+      "name": "update_data",
+      "label": {
+        "en_US": "Update Data",
+        "zh_Hans": "更新数据"
+      },
+      "description": {
+        "en_US": "Update a record in specified table",
+        "zh_Hans": "更新指定表中的记录"
+      },
+      "parameters": [
+        {
+          "name": "table",
+          "type": "string",
+          "required": true,
+          "label": {
+            "en_US": "Table Name",
+            "zh_Hans": "表名"
+          },
+          "human_description": {
+            "en_US": "Name of the database table to update",
+            "zh_Hans": "要更新的数据库表名"
+          },
+          "llm_description": "The name of the SQLite table containing the record to update",
+          "form": "llm"
+        },
+        {
+          "name": "record_id",
+          "type": "number",
+          "required": true,
+          "label": {
+            "en_US": "Record ID",
+            "zh_Hans": "记录ID"
+          },
+          "human_description": {
+            "en_US": "ID of the record to update",
+            "zh_Hans": "要更新记录的ID"
+          },
+          "llm_description": "The unique ID of the record to update",
+          "form": "llm"
+        },
+        {
+          "name": "data",
+          "type": "string",
+          "required": true,
+          "label": {
+            "en_US": "Update Data JSON",
+            "zh_Hans": "更新数据JSON"
+          },
+          "human_description": {
+            "en_US": "JSON string containing the data to update",
+            "zh_Hans": "包含要更新数据的JSON字符串"
+          },
+          "llm_description": "JSON string with key-value pairs of columns to update. Format: {\"column1\": \"new_value1\"}",
+          "form": "llm"
+        }
+      ]
+    },
+    {
+      "name": "get_table_stats",
+      "label": {
+        "en_US": "Get Table Statistics",
+        "zh_Hans": "获取表统计信息"
+      },
+      "description": {
+        "en_US": "Get table structure and statistics information",
+        "zh_Hans": "获取表结构和统计信息"
+      },
+      "parameters": [
+        {
+          "name": "table",
+          "type": "string",
+          "required": true,
+          "label": {
+            "en_US": "Table Name",
+            "zh_Hans": "表名"
+          },
+          "human_description": {
+            "en_US": "Name of the table to get information about",
+            "zh_Hans": "要获取信息的表名"
+          },
+          "llm_description": "Name of the SQLite table to get structure and statistics for",
+          "form": "llm"
+        }
+      ]
+    }
+  ]
+}

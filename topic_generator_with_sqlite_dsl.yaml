@@ -1,0 +1,827 @@
+app:
+  description: 智能话题内容生成器，根据预设类型生成话题和内容，集成SQLite数据库和向量去重
+  icon: '#'
+  icon_background: '#FF6B6B'
+  mode: workflow
+  name: 话题内容生成器
+  use_icon_as_answer_icon: false
+dependencies:
+- current_identifier: null
+  type: marketplace
+  value:
+    marketplace_plugin_unique_identifier: langgenius/volcengine_maas:0.0.30@0e6b13a721cc8fb7b928787f86ffc57655ace2cbc938c4738c209d70b18a85f8
+kind: app
+version: 0.3.1
+workflow:
+  conversation_variables: []
+  environment_variables: []
+  features:
+    file_upload:
+      allowed_file_extensions:
+      - .JPG
+      - .JPEG
+      - .PNG
+      - .GIF
+      - .WEBP
+      - .SVG
+      allowed_file_types:
+      - image
+      allowed_file_upload_methods:
+      - local_file
+      - remote_url
+      enabled: false
+      fileUploadConfig:
+        audio_file_size_limit: 50
+        batch_count_limit: 5
+        file_size_limit: 15
+        image_file_size_limit: 10
+        video_file_size_limit: 100
+        workflow_file_upload_limit: 10
+      image:
+        enabled: false
+        number_limits: 3
+        transfer_methods:
+        - local_file
+        - remote_url
+      number_limits: 3
+    opening_statement: '欢迎使用智能话题内容生成器！
+
+
+      功能特色：
+
+      - 多类型话题生成（娱乐、八卦、科技等）
+
+      - 可控制生成数量
+
+      - 向量去重避免重复
+
+      - 自动存储到SQLite数据库
+
+      - 智能关键词提取
+
+
+      请设置您要生成的话题类型和数量：
+
+      '
+    retriever_resource:
+      enabled: true
+    sensitive_word_avoidance:
+      enabled: false
+    speech_to_text:
+      enabled: false
+    suggested_questions:
+    - 生成5条娱乐类话题
+    - 生成3条科技类话题
+    - 生成10条生活类话题
+    - 生成2条美食类话题
+    suggested_questions_after_answer:
+      enabled: false
+    text_to_speech:
+      enabled: false
+      language: ''
+      voice: ''
+  graph:
+    edges:
+    - data:
+        isInIteration: false
+        sourceType: start
+        targetType: code
+      id: 1736424593742-source-1736424595123-target
+      source: '1736424593742'
+      sourceHandle: source
+      target: '1736424595123'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInIteration: false
+        sourceType: code
+        targetType: knowledge-retrieval
+      id: 1736424595123-source-1736424596234-target
+      source: '1736424595123'
+      sourceHandle: source
+      target: '1736424596234'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInIteration: false
+        sourceType: knowledge-retrieval
+        targetType: llm
+      id: 1736424596234-source-1736424598201-target
+      source: '1736424596234'
+      sourceHandle: source
+      target: '1736424598201'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInIteration: false
+        sourceType: llm
+        targetType: llm
+      id: 1736424598201-source-1736424599234-target
+      source: '1736424598201'
+      sourceHandle: source
+      target: '1736424599234'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInIteration: false
+        sourceType: llm
+        targetType: code
+      id: 1736424599234-source-1736424601456-target
+      source: '1736424599234'
+      sourceHandle: source
+      target: '1736424601456'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInIteration: false
+        sourceType: code
+        targetType: end
+      id: 1736424603678-source-1736424600123-target
+      source: '1736424603678'
+      sourceHandle: source
+      target: '1736424600123'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInLoop: false
+        sourceType: code
+        targetType: tool
+      id: 1736424601456-source-1757476920544-target
+      source: '1736424601456'
+      sourceHandle: source
+      target: '1757476920544'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInLoop: false
+        sourceType: tool
+        targetType: code
+      id: 1757476920544-source-1736424603678-target
+      source: '1757476920544'
+      sourceHandle: source
+      target: '1736424603678'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    nodes:
+    - data:
+        desc: 输入话题生成参数
+        selected: false
+        title: 开始
+        type: start
+        variables:
+        - description: 选择要生成的话题类型
+          label: 话题类型
+          options:
+          - 娱乐八卦
+          - 科技数码
+          - 生活时尚
+          - 美食旅游
+          - 体育健身
+          - 教育学习
+          - 职场商业
+          - 情感心理
+          - 游戏动漫
+          - 艺术文化
+          required: true
+          type: select
+          variable: topic_type
+        - description: 指定要生成的话题数量（1-10条）
+          label: 生成数量
+          max_length: 2
+          options: []
+          required: true
+          type: text-input
+          variable: generation_count
+        - description: 可选的额外要求或偏好设置
+          label: 额外要求
+          max_length: 500
+          options: []
+          required: false
+          type: paragraph
+          variable: additional_requirements
+      height: 169
+      id: '1736424593742'
+      position:
+        x: 80
+        y: 282
+      positionAbsolute:
+        x: 80
+        y: 282
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 243
+    - data:
+        code: "import json\nimport re\n\ndef main(topic_type: str, generation_count:\
+          \ str, additional_requirements: str) -> dict:\n    \"\"\"\n    预处理输入参数和准备查询条件\n\
+          \    \"\"\"\n    \n    # 验证和转换生成数量\n    try:\n        count = int(generation_count.strip())\n\
+          \        if count < 1 or count > 10:\n            count = 1\n    except\
+          \ (ValueError, AttributeError):\n        count = 1\n    \n    # 话题类型映射和提示词模板\n\
+          \    topic_templates = {\n        \"娱乐八卦\": {\n            \"keywords\"\
+          : [\"明星\", \"娱乐圈\", \"影视\", \"综艺\", \"音乐\", \"时尚\"],\n            \"description\"\
+          : \"娱乐圈趣闻、明星动态、影视作品讨论\",\n            \"style\": \"轻松有趣，适合聊天\"\n       \
+          \ },\n        \"科技数码\": {\n            \"keywords\": [\"科技\", \"数码\", \"\
+          AI\", \"手机\", \"电脑\", \"创新\"],\n            \"description\": \"科技产品、数字生活、技术趋势\"\
+          ,\n            \"style\": \"专业但通俗易懂\"\n        },\n        \"生活时尚\": {\n\
+          \            \"keywords\": [\"生活\", \"时尚\", \"穿搭\", \"美妆\", \"居家\", \"品味\"\
+          ],\n            \"description\": \"生活方式、时尚搭配、美容护肤\",\n            \"style\"\
+          : \"实用且有趣味性\"\n        },\n        \"美食旅游\": {\n            \"keywords\"\
+          : [\"美食\", \"旅游\", \"餐厅\", \"景点\", \"文化\", \"体验\"],\n            \"description\"\
+          : \"美食推荐、旅行体验、地方文化\",\n            \"style\": \"诱人且富有体验感\"\n        },\n\
+          \        \"体育健身\": {\n            \"keywords\": [\"体育\", \"健身\", \"运动\"\
+          , \"锻炼\", \"比赛\", \"健康\"],\n            \"description\": \"运动健身、体育赛事、健康生活\"\
+          ,\n            \"style\": \"积极正能量\"\n        },\n        \"教育学习\": {\n \
+          \           \"keywords\": [\"教育\", \"学习\", \"知识\", \"技能\", \"成长\", \"发展\"\
+          ],\n            \"description\": \"学习方法、教育话题、知识分享\",\n            \"style\"\
+          : \"启发性和实用性\"\n        },\n        \"职场商业\": {\n            \"keywords\"\
+          : [\"职场\", \"商业\", \"工作\", \"管理\", \"创业\", \"发展\"],\n            \"description\"\
+          : \"职场技能、商业思维、工作生活\",\n            \"style\": \"专业且有指导意义\"\n        },\n\
+          \        \"情感心理\": {\n            \"keywords\": [\"情感\", \"心理\", \"关系\"\
+          , \"成长\", \"治愈\", \"感悟\"],\n            \"description\": \"情感话题、心理健康、人际关系\"\
+          ,\n            \"style\": \"温暖治愈，有共鸣\"\n        },\n        \"游戏动漫\": {\n\
+          \            \"keywords\": [\"游戏\", \"动漫\", \"二次元\", \"角色\", \"剧情\", \"\
+          社区\"],\n            \"description\": \"游戏体验、动漫作品、二次元文化\",\n            \"\
+          style\": \"有趣且有话题性\"\n        },\n        \"艺术文化\": {\n            \"keywords\"\
+          : [\"艺术\", \"文化\", \"创作\", \"审美\", \"传统\", \"现代\"],\n            \"description\"\
+          : \"艺术作品、文化现象、创作分享\",\n            \"style\": \"有深度且易于理解\"\n        }\n\
+          \    }\n    \n    # 获取当前类型的配置\n    current_config = topic_templates.get(topic_type,\
+          \ topic_templates[\"娱乐八卦\"])\n    \n    # 构建查询关键词用于向量检索\n    search_keywords\
+          \ = \" \".join(current_config[\"keywords\"][:3])  # 使用前3个关键词\n    \n   \
+          \ # 清理额外要求\n    additional_req = additional_requirements.strip() if additional_requirements\
+          \ else \"\"\n    \n    return {\n        \"processed_topic_type\": topic_type,\n\
+          \        \"validated_count\": count,\n        \"search_keywords\": search_keywords,\n\
+          \        \"topic_config\": current_config,\n        \"additional_requirements\"\
+          : additional_req,\n        \"query_text\": f\"{topic_type} {search_keywords}\"\
+          ,\n        \"generation_context\": f\"类型：{topic_type}，关键词：{search_keywords}，要求：{additional_req}\"\
+          \n    }\n"
+        code_language: python3
+        desc: 预处理输入参数
+        outputs:
+          additional_requirements:
+            description: 额外要求
+            type: string
+          generation_context:
+            description: 生成上下文
+            type: string
+          processed_topic_type:
+            description: 处理后的话题类型
+            type: string
+          query_text:
+            description: 查询文本
+            type: string
+          search_keywords:
+            description: 搜索关键词
+            type: string
+          topic_config:
+            description: 话题配置信息
+            type: object
+          validated_count:
+            description: 验证后的生成数量
+            type: number
+        selected: false
+        title: 参数预处理
+        type: code
+        variables:
+        - value_selector:
+          - '1736424593742'
+          - topic_type
+          variable: topic_type
+        - value_selector:
+          - '1736424593742'
+          - generation_count
+          variable: generation_count
+        - value_selector:
+          - '1736424593742'
+          - additional_requirements
+          variable: additional_requirements
+      height: 81
+      id: '1736424595123'
+      position:
+        x: 384
+        y: 282
+      positionAbsolute:
+        x: 384
+        y: 282
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 243
+    - data:
+        dataset_configs:
+          datasets:
+            datasets: []
+          reranking_model:
+            enabled: false
+          retrieval_mode: single
+          score_threshold: 0.7
+          top_k: 5
+        dataset_ids:
+        - fN/6Jgr5Z3G3ousdC8zgGL2EslFDYDtFwOjw7fInBUgTZL7Ieie/fyIrF2WcryBs
+        desc: 检索已有话题避免重复
+        multiple_retrieval_config:
+          score_threshold: 0.7
+          top_k: 5
+        query_variable_selector:
+        - '1736424595123'
+        - query_text
+        retrieval_mode: single
+        selected: false
+        single_retrieval_config:
+          model:
+            completion_params: {}
+            mode: chat
+            name: Doubao-Seed-1.6
+            provider: langgenius/volcengine_maas/volcengine_maas
+        title: 话题去重检索
+        type: knowledge-retrieval
+      height: 119
+      id: '1736424596234'
+      position:
+        x: 688
+        y: 282
+      positionAbsolute:
+        x: 688
+        y: 282
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 243
+    - data:
+        context:
+          enabled: true
+          variable_selector:
+          - '1736424596234'
+          - result
+        desc: 生成话题和内容
+        model:
+          completion_params:
+            frequency_penalty: 0.3
+            max_tokens: 800
+            presence_penalty: 0.2
+            temperature: 0.8
+            top_p: 0.9
+          mode: chat
+          name: Doubao-Seed-1.6
+          provider: langgenius/volcengine_maas/volcengine_maas
+        prompt_template:
+        - id: 3a89b9f5-3cc0-4f7d-9b28-f5b2bc8d91c3
+          role: system
+          text: "你是一个专业的话题内容生成专家，擅长创作吸引人的聊天话题。\n\n**当前生成任务：**\n- 话题类型：{{#1736424595123.processed_topic_type#}}\n\
+            - 话题风格：{{#1736424595123.topic_config.style#}}\n- 内容特征：{{#1736424595123.topic_config.description#}}\n\
+            - 关键词范围：{{#1736424595123.search_keywords#}}\n{% if 1736424595123.additional_requirements\
+            \ %}\n- 额外要求：{{#1736424595123.additional_requirements#}}\n{% endif %}\n\
+            \n**已存在的相似话题（请避免重复）：**\n{{#1736424596234.result#}}\n\n**生成要求：**\n1. 生成1个全新的话题，确保与已有话题不重复\n\
+            2. 话题要有趣、有讨论价值，适合日常聊天\n3. 内容要具体生动，不要空泛的描述\n4. 避免时效性话题（如具体日期、当前事件等）\n5.\
+            \ 内容长度100-300字，语言轻松自然\n6. 确保内容积极正面，无敏感信息\n\n**输出格式：**\n严格按照以下JSON格式输出，不要添加任何其他文字：\n\
+            ```json\n{\n  \"topic_title\": \"话题标题（10-30字）\",\n  \"topic_content\"\
+            : \"详细内容描述（100-300字）\",\n  \"category\": \"{{#1736424595123.processed_topic_type#}}\"\
+            \n}\n```\n"
+        - id: 8b7c9f2e-1c45-4d8f-9e32-a5d6c7b8f9e0
+          role: user
+          text: '请根据上述要求，为"{{#1736424595123.processed_topic_type#}}"类别生成一个全新的话题和内容。
+
+
+            重点关注：
+
+            - 与现有话题的差异化
+
+            - 内容的趣味性和讨论价值
+
+            - 适合AI聊天场景使用
+
+            '
+        selected: false
+        title: 话题内容生成
+        type: llm
+        variables: []
+        vision:
+          enabled: false
+      height: 117
+      id: '1736424598201'
+      position:
+        x: 992
+        y: 282
+      positionAbsolute:
+        x: 992
+        y: 282
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 243
+    - data:
+        context:
+          enabled: false
+          variable_selector: []
+        desc: 生成搜索关键词
+        model:
+          completion_params:
+            frequency_penalty: 0.1
+            max_tokens: 100
+            presence_penalty: 0
+            temperature: 0.3
+            top_p: 0.9
+          mode: chat
+          name: Doubao-Seed-1.6
+          provider: langgenius/volcengine_maas/volcengine_maas
+        prompt_template:
+        - id: 4b8d9f3e-2c46-5e9f-0f33-b6e7d8c9fa10
+          role: system
+          text: '你是一个关键词提取专家，需要为话题内容生成3-5个精准的搜索关键词。
+
+
+            **要求：**
+
+            1. 关键词要能准确概括话题核心
+
+            2. 适合搜索引擎和推荐算法使用
+
+            3. 使用简洁的词语，避免长句
+
+            4. 包含话题类别的核心词汇
+
+            5. 关键词之间用空格分隔
+
+
+            **输出格式：**
+
+            只输出关键词，用空格分隔，不要其他文字。
+
+            例如：娱乐 明星 八卦 热点 话题
+
+            '
+        - id: 9c8e0f4d-3d57-6f0g-1g44-c7f8e9d0gb21
+          role: user
+          text: '请为以下话题生成搜索关键词：
+
+
+            话题类型：{{#1736424595123.processed_topic_type#}}
+
+            话题内容：{{#1736424598201.text#}}
+
+            '
+        selected: false
+        title: 关键词生成
+        type: llm
+        variables: []
+        vision:
+          enabled: false
+      height: 117
+      id: '1736424599234'
+      position:
+        x: 1296
+        y: 282
+      positionAbsolute:
+        x: 1296
+        y: 282
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 243
+    - data:
+        code: "import json\nimport re\nimport datetime\n\ndef main(topic_content:\
+          \ str, search_keywords: str, processed_topic_type: str, validated_count:\
+          \ int) -> dict:\n    \"\"\"\n    解析生成的内容，准备数据库存储格式\n    \"\"\"\n    \n \
+          \   try:\n        # 尝试解析JSON格式的话题内容\n        if topic_content.strip().startswith('```json'):\n\
+          \            # 提取JSON部分\n            json_match = re.search(r'```json\\\
+          s*\\n(.*?)\\n```', topic_content, re.DOTALL)\n            if json_match:\n\
+          \                topic_data = json.loads(json_match.group(1))\n        \
+          \    else:\n                raise ValueError(\"JSON格式解析失败\")\n        elif\
+          \ topic_content.strip().startswith('{'):\n            topic_data = json.loads(topic_content)\n\
+          \        else:\n            # 如果不是JSON格式，尝试智能解析\n            topic_data\
+          \ = {\n                \"topic_title\": \"生成的话题\",\n                \"topic_content\"\
+          : topic_content,\n                \"category\": processed_topic_type\n \
+          \           }\n        \n        # 确保必要字段存在\n        title = topic_data.get(\"\
+          topic_title\", \"未命名话题\")\n        content = topic_data.get(\"topic_content\"\
+          , topic_content)\n        category = topic_data.get(\"category\", processed_topic_type)\n\
+          \        \n        # 清理和验证数据\n        title = title.strip()[:100]  # 限制标题长度\n\
+          \        content = content.strip()[:1000]  # 限制内容长度\n        keywords =\
+          \ search_keywords.strip()[:200]  # 限制关键词长度\n        \n        # 准备数据库插入的数据格式\n\
+          \        db_data = {\n            \"type\": category,\n            \"topic\"\
+          : title,\n            \"content\": content,\n            \"search_keywords\"\
+          : keywords,\n            \"status\": \"generated\",\n            \"metadata\"\
+          : json.dumps({\n                \"generation_time\": datetime.datetime.now().isoformat(),\n\
+          \                \"workflow\": \"topic_generator\",\n                \"\
+          version\": \"1.0\"\n            }, ensure_ascii=False)\n        }\n    \
+          \    \n        return {\n            \"success\": \"true\",\n          \
+          \  \"db_data\": json.dumps(db_data, ensure_ascii=False),\n            \"\
+          parsed_title\": title,\n            \"parsed_content\": content,\n     \
+          \       \"parsed_keywords\": keywords,\n            \"parsed_category\"\
+          : category,\n            \"remaining_count\": max(0, validated_count - 1)\n\
+          \        }\n        \n    except Exception as e:\n        return {\n   \
+          \         \"success\": \"false\",\n            \"error\": str(e),\n    \
+          \        \"db_data\": \"{}\",\n            \"parsed_title\": \"解析失败\",\n\
+          \            \"parsed_content\": topic_content,\n            \"parsed_keywords\"\
+          : \"\",\n            \"parsed_category\": processed_topic_type,\n      \
+          \      \"remaining_count\": validated_count\n        }\n"
+        code_language: python3
+        desc: 数据解析处理
+        outputs:
+          db_data:
+            description: 数据库插入数据JSON
+            type: string
+          parsed_category:
+            description: 解析后的类别
+            type: string
+          parsed_content:
+            description: 解析后的内容
+            type: string
+          parsed_keywords:
+            description: 解析后的关键词
+            type: string
+          parsed_title:
+            description: 解析后的标题
+            type: string
+          remaining_count:
+            description: 剩余生成数量
+            type: number
+          success:
+            description: 解析是否成功
+            type: string
+        selected: false
+        title: 数据解析
+        type: code
+        variables:
+        - value_selector:
+          - '1736424598201'
+          - text
+          variable: topic_content
+        - value_selector:
+          - '1736424599234'
+          - text
+          variable: search_keywords
+        - value_selector:
+          - '1736424595123'
+          - processed_topic_type
+          variable: processed_topic_type
+        - value_selector:
+          - '1736424595123'
+          - validated_count
+          variable: validated_count
+      height: 81
+      id: '1736424601456'
+      position:
+        x: 1611.428911041789
+        y: 282
+      positionAbsolute:
+        x: 1611.428911041789
+        y: 282
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 243
+    - data:
+        code: "import json\n\ndef main(sqlite_result: str, parsed_title: str, parsed_content:\
+          \ str, parsed_keywords: str, parsed_category: str, remaining_count: int,\
+          \ success: bool) -> dict:\n    \"\"\"\n    处理SQLite API工具返回结果并格式化最终输出\n\
+          \    \"\"\"\n    \n    try:\n        # 解析SQLite API工具返回的结果\n        # 处理不同的数据格式\n\
+          \        if isinstance(sqlite_result, str):\n            db_result = json.loads(sqlite_result)\n\
+          \        elif isinstance(sqlite_result, dict):\n            # 检查是否是包装在json数组中的格式\n            if 'json' in sqlite_result and isinstance(sqlite_result['json'], list) and sqlite_result['json']:\n                db_result = sqlite_result['json'][0]  # 取第一个元素\n            else:\n                db_result = sqlite_result\n\
+          \        else:\n            db_result = sqlite_result\n        \n      \
+          \  if db_result.get(\"success\", False):\n            record_id = db_result.get(\"\
+          record_id\", \"unknown\")\n            \n            formatted_output =\
+          \ f\"\"\"\n**话题生成成功！**\n\n**类型：** {parsed_category}\n**标题：** {parsed_title}\n\
+          **内容：** {parsed_content}\n**关键词：** {parsed_keywords}\n**记录ID：** {record_id}\n\
+          **生成时间：** 刚刚\n\n**存储状态：** 成功保存到SQLite数据库\n\n---\n**提示：** 此话题已保存到数据库，并将用于向量去重避免重复生成。\n\
+          \n**剩余待生成：** {remaining_count} 条\n            \"\"\"\n            \n   \
+          \         return {\n                \"final_success\": \"true\",\n     \
+          \           \"database_record_id\": record_id,\n                \"formatted_result\"\
+          : formatted_output,\n                \"topic_data\": {\n               \
+          \     \"type\": parsed_category,\n                    \"title\": parsed_title,\n\
+          \                    \"content\": parsed_content,\n                    \"\
+          keywords\": parsed_keywords,\n                    \"record_id\": record_id\n\
+          \                }\n            }\n        else:\n            error_msg\
+          \ = db_result.get(\"error\", \"未知数据库错误\")\n            details = db_result.get(\"\
+          details\", \"\")\n            \n            formatted_output = f\"\"\"\n\
+          **数据存储失败！**\n\n**类型：** {parsed_category}\n**标题：** {parsed_title}\n**内容：**\
+          \ {parsed_content}\n**关键词：** {parsed_keywords}\n\n**错误信息：** {error_msg}\n\
+          **详细信息：** {details}\n\n---\n**建议：** 请检查SQLite API服务是否正常运行，或重新尝试生成。\n   \
+          \         \"\"\"\n            \n            return {\n                \"\
+          final_success\": \"false\",\n                \"database_record_id\": \"none\"\
+          ,\n                \"formatted_result\": formatted_output,\n           \
+          \     \"topic_data\": {\n                    \"type\": parsed_category,\n\
+          \                    \"title\": parsed_title,\n                    \"content\"\
+          : parsed_content,\n                    \"keywords\": parsed_keywords,\n\
+          \                    \"record_id\": \"none\",\n                    \"error\"\
+          : error_msg\n                },\n                \"error\": error_msg\n\
+          \            }\n            \n    except Exception\
+          \ as e:\n        formatted_output = f\"\"\"\n**结果处理异常！**\n\n**标题：** {parsed_title}\n\
+          **内容：** {parsed_content}\n\n**处理错误：** {str(e)}\n\n原始SQLite结果：{str(sqlite_result)}\n\
+          \n---\n**调试信息：** 请检查API工具配置和网络连接。\n        \"\"\"\n        \n        return\
+          \ {\n            \"final_success\": \"false\",\n            \"database_record_id\"\
+          : \"none\",\n            \"formatted_result\": formatted_output,\n      \
+          \      \"topic_data\": {\n                \"type\": parsed_category,\n  \
+          \              \"title\": parsed_title,\n                \"content\": parsed_content,\n\
+          \                \"keywords\": parsed_keywords,\n                \"record_id\"\
+          : \"none\",\n                \"error\": str(e)\n            },\n        \
+          \    \"error\": str(e)\n        }\n"
+        code_language: python3
+        desc: 处理数据库结果
+        outputs:
+          database_record_id:
+            description: 数据库记录ID
+            type: string
+          final_success:
+            description: 最终操作是否成功
+            type: string
+          formatted_result:
+            description: 格式化的最终结果
+            type: string
+          topic_data:
+            description: 话题数据对象
+            type: object
+          error:
+            description: 错误信息
+            type: string
+        selected: false
+        title: 结果处理
+        type: code
+        variables:
+        - value_selector:
+          - '1757476920544'
+          - text
+          variable: sqlite_result
+        - value_selector:
+          - '1736424601456'
+          - parsed_title
+          variable: parsed_title
+        - value_selector:
+          - '1736424601456'
+          - parsed_content
+          variable: parsed_content
+        - value_selector:
+          - '1736424601456'
+          - parsed_keywords
+          variable: parsed_keywords
+        - value_selector:
+          - '1736424601456'
+          - parsed_category
+          variable: parsed_category
+        - value_selector:
+          - '1736424601456'
+          - remaining_count
+          variable: remaining_count
+        - value_selector:
+          - '1736424601456'
+          - success
+          variable: success
+      height: 81
+      id: '1736424603678'
+      position:
+        x: 2208
+        y: 282
+      positionAbsolute:
+        x: 2208
+        y: 282
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 243
+    - data:
+        desc: 输出最终生成结果
+        outputs:
+        - value_selector:
+          - '1736424603678'
+          - formatted_result
+          variable: result
+        - value_selector:
+          - '1736424603678'
+          - final_success
+          variable: success
+        - value_selector:
+          - '1736424603678'
+          - database_record_id
+          variable: record_id
+        - value_selector:
+          - '1736424601456'
+          - remaining_count
+          variable: remaining_count
+        selected: false
+        title: 结果输出
+        type: end
+      height: 196
+      id: '1736424600123'
+      position:
+        x: 2512
+        y: 282
+      positionAbsolute:
+        x: 2512
+        y: 282
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 243
+    - data:
+        desc: ''
+        is_team_authorization: true
+        output_schema: null
+        paramSchemas:
+        - auto_generate: null
+          default: null
+          form: llm
+          human_description:
+            en_US: Name of the SQLite table to insert data into
+            ja_JP: Name of the SQLite table to insert data into
+            pt_BR: Name of the SQLite table to insert data into
+            zh_Hans: Name of the SQLite table to insert data into
+          label:
+            en_US: table
+            ja_JP: table
+            pt_BR: table
+            zh_Hans: table
+          llm_description: Name of the SQLite table to insert data into
+          max: null
+          min: null
+          name: table
+          options: []
+          placeholder:
+            en_US: Name of the SQLite table to insert data into
+            ja_JP: Name of the SQLite table to insert data into
+            pt_BR: Name of the SQLite table to insert data into
+            zh_Hans: Name of the SQLite table to insert data into
+          precision: null
+          required: true
+          scope: null
+          template: null
+          type: string
+        - auto_generate: null
+          default: null
+          form: llm
+          human_description:
+            en_US: JSON string containing the data to insert
+            ja_JP: JSON string containing the data to insert
+            pt_BR: JSON string containing the data to insert
+            zh_Hans: JSON string containing the data to insert
+          label:
+            en_US: data
+            ja_JP: data
+            pt_BR: data
+            zh_Hans: data
+          llm_description: JSON string containing the data to insert
+          max: null
+          min: null
+          name: data
+          options: []
+          placeholder:
+            en_US: JSON string containing the data to insert
+            ja_JP: JSON string containing the data to insert
+            pt_BR: JSON string containing the data to insert
+            zh_Hans: JSON string containing the data to insert
+          precision: null
+          required: true
+          scope: null
+          template: null
+          type: string
+        params:
+          data: ''
+          table: ''
+        provider_id: 9222afa0-590b-4f4d-844f-7cf11f00489f
+        provider_name: SQL-lite
+        provider_type: api
+        selected: true
+        title: insert_data
+        tool_configurations: {}
+        tool_description: Insert a record into the specified SQLite table
+        tool_label: insert_data
+        tool_name: insert_data
+        tool_node_version: '2'
+        tool_parameters:
+          data:
+            type: mixed
+            value: '{{#1736424601456.db_data#}}'
+          table:
+            type: mixed
+            value: 'topics'
+        type: tool
+      height: 53
+      id: '1757476920544'
+      position:
+        x: 1904
+        y: 282
+      positionAbsolute:
+        x: 1904
+        y: 282
+      selected: true
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 243
+    viewport:
+      x: -1725.5301452556723
+      y: 133.47717847077206
+      zoom: 1.145517897979758

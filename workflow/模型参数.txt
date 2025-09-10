@@ -1,0 +1,1365 @@
+simple-5.yaml:
+repetition_penalty: 1.35
+temperature: 0.7
+top_p: 0.95
+random_preset_171.yaml:
+repetition_penalty: 1.13
+temperature: 1.36
+top_a: 0.64
+top_k: 72
+top_p: 0.59
+random_preset_162.yaml:
+repetition_penalty: 1.03
+temperature: 1.18
+top_k: 65
+top_p: 0.47
+random_preset_015.yaml:
+repetition_penalty: 1.19
+temperature: 0.85
+top_a: 0.61
+top_k: 11
+top_p: 0.85
+random_preset_079.yaml:
+encoder_repetition_penalty: 0.99
+repetition_penalty: 1.45
+temperature: 1.69
+top_a: 0.92
+top_k: 66
+top_p: 0.2
+random_preset_100.yaml:
+epsilon_cutoff: 5.47
+repetition_penalty: 1.35
+temperature: 1.24
+top_k: 47
+top_p: 0.32
+random_preset_144.yaml:
+encoder_repetition_penalty: 0.87
+epsilon_cutoff: 5.61
+repetition_penalty: 1.25
+temperature: 1.23
+top_k: 34
+top_p: 0.18
+typical_p: 0.57
+random_preset_189.yaml:
+encoder_repetition_penalty: 1.1
+repetition_penalty: 1.28
+temperature: 0.02
+top_a: 0.24
+top_k: 22
+top_p: 0.57
+random_preset_086.yaml:
+repetition_penalty: 1.18
+temperature: 0.9
+top_k: 5
+top_p: 0.16
+random_preset_118.yaml:
+epsilon_cutoff: 1.51
+repetition_penalty: 1.19
+temperature: 1.59
+tfs: 0.66
+top_k: 22
+top_p: 0.93
+NovelAI-Genesis.yaml:
+repetition_penalty: 1.05
+temperature: 0.63
+top_p: 0.98
+random_preset_113.yaml:
+eta_cutoff: 12.59
+repetition_penalty: 1.01
+temperature: 0.38
+top_k: 73
+top_p: 0.2
+random_preset_198.yaml:
+encoder_repetition_penalty: 1.31
+eta_cutoff: 17.56
+repetition_penalty: 1.14
+temperature: 1.48
+top_k: 43
+top_p: 0.02
+typical_p: 0.18
+simple-6.yaml:
+repetition_penalty: 1.05
+temperature: 0.7
+top_p: 0.95
+random_preset_119.yaml:
+repetition_penalty: 1.27
+temperature: 1.11
+top_k: 19
+top_p: 0.84
+random_preset_061.yaml:
+epsilon_cutoff: 1.48
+repetition_penalty: 1.35
+temperature: 1.57
+tfs: 0.15
+top_k: 44
+top_p: 0.85
+typical_p: 0.0
+Kobold-Godlike.yaml:
+repetition_penalty: 1.1
+temperature: 0.7
+top_p: 0.5
+typical_p: 0.19
+typical.yaml:
+repetition_penalty: 1.15
+temperature: 0.7
+top_p: 0.95
+typical_p: 0.2
+random_preset_179.yaml:
+epsilon_cutoff: 1.82
+repetition_penalty: 1.06
+temperature: 0.83
+top_k: 24
+top_p: 0.29
+random_preset_096.yaml:
+encoder_repetition_penalty: 1.45
+epsilon_cutoff: 2.27
+repetition_penalty: 1.3
+temperature: 0.27
+top_k: 47
+top_p: 0.39
+random_preset_037.yaml:
+repetition_penalty: 1.23
+temperature: 1.73
+tfs: 0.48
+top_k: 45
+top_p: 0.5
+typical_p: 0.03
+random_preset_032.yaml:
+epsilon_cutoff: 4.79
+repetition_penalty: 1.48
+temperature: 0.59
+tfs: 0.13
+top_k: 22
+top_p: 0.47
+random_preset_137.yaml:
+encoder_repetition_penalty: 1.15
+repetition_penalty: 1.01
+temperature: 1.65
+tfs: 0.59
+top_k: 27
+top_p: 0.56
+random_preset_155.yaml:
+repetition_penalty: 1.2
+temperature: 1.87
+top_k: 96
+top_p: 0.3
+typical_p: 0.04
+random_preset_022.yaml:
+repetition_penalty: 1.26
+temperature: 0.99
+tfs: 0.15
+top_a: 0.04
+top_k: 100
+top_p: 0.52
+random_preset_084.yaml:
+encoder_repetition_penalty: 1.34
+repetition_penalty: 1.45
+temperature: 0.75
+top_k: 48
+top_p: 0.13
+tfs-simple.yaml:
+repetition_penalty: 1.15
+temperature: 0.7
+tfs: 0.95
+random_preset_012.yaml:
+repetition_penalty: 1.17
+temperature: 0.7
+tfs: 0.48
+top_a: 0.28
+top_k: 30
+top_p: 0.22
+random_preset_130.yaml:
+eta_cutoff: 13.78
+repetition_penalty: 1.21
+temperature: 0.4
+top_k: 71
+top_p: 0.79
+random_preset_098.yaml:
+repetition_penalty: 1.08
+temperature: 0.05
+top_k: 70
+top_p: 0.77
+random_preset_047.yaml:
+eta_cutoff: 8.14
+repetition_penalty: 1.43
+temperature: 1.36
+top_a: 0.59
+top_k: 26
+top_p: 0.57
+typical_p: 0.23
+random_preset_185.yaml:
+repetition_penalty: 1.25
+temperature: 0.74
+top_a: 0.04
+top_k: 68
+top_p: 0.68
+typical_p: 0.93
+random_preset_183.yaml:
+encoder_repetition_penalty: 1.07
+eta_cutoff: 10.78
+repetition_penalty: 1.21
+temperature: 1.01
+top_a: 0.75
+top_k: 91
+top_p: 0.21
+random_preset_148.yaml:
+repetition_penalty: 1.21
+temperature: 0.88
+top_k: 98
+top_p: 0.23
+random_preset_088.yaml:
+repetition_penalty: 1.35
+temperature: 1.59
+top_k: 62
+top_p: 0.93
+random_preset_004.yaml:
+repetition_penalty: 1.36
+temperature: 1.89
+tfs: 0.56
+top_a: 0.07
+top_k: 6
+top_p: 0.42
+typical_p: 0.77
+random_preset_054.yaml:
+repetition_penalty: 1.1
+temperature: 1.74
+top_k: 58
+top_p: 0.97
+random_preset_063.yaml:
+epsilon_cutoff: 7.68
+repetition_penalty: 1.2
+temperature: 0.85
+tfs: 0.54
+top_k: 9
+top_p: 0.55
+Special-Eta Sampling.yaml:
+eta_cutoff: 3
+repetition_penalty: 1.18
+temperature: 0.7
+random_preset_007.yaml:
+repetition_penalty: 1.19
+temperature: 1.47
+tfs: 0.13
+top_a: 0.15
+top_k: 74
+top_p: 0.18
+random_preset_039.yaml:
+repetition_penalty: 1.39
+temperature: 0.55
+top_k: 54
+top_p: 0.26
+tfs-with-top-a.yaml:
+repetition_penalty: 1.15
+temperature: 0.7
+tfs: 0.95
+top_a: 0.2
+random_preset_056.yaml:
+repetition_penalty: 1.05
+temperature: 1.02
+tfs: 0.41
+top_k: 30
+top_p: 0.73
+random_preset_196.yaml:
+epsilon_cutoff: 0.6
+repetition_penalty: 1.23
+temperature: 1.44
+tfs: 0.45
+top_k: 55
+top_p: 0.78
+random_preset_078.yaml:
+encoder_repetition_penalty: 0.84
+repetition_penalty: 1.34
+temperature: 1.03
+top_k: 29
+top_p: 0.88
+NovelAI-Lycaenidae.yaml:
+repetition_penalty: 1.15
+temperature: 2
+top_k: 12
+top_p: 0.85
+random_preset_008.yaml:
+epsilon_cutoff: 2.45
+repetition_penalty: 1.45
+temperature: 1.47
+tfs: 0.44
+top_a: 0.54
+top_k: 82
+top_p: 0.59
+Mirostat-2.yaml:
+mirostat_eta: 0.2
+mirostat_mode: 2
+random_preset_029.yaml:
+repetition_penalty: 1.25
+temperature: 0.35
+top_k: 54
+top_p: 0.86
+random_preset_104.yaml:
+eta_cutoff: 13.82
+repetition_penalty: 1.15
+temperature: 1.05
+top_k: 96
+top_p: 0.43
+NovelAI-Decadence.yaml:
+temperature: 2
+top_k: 100
+typical_p: 0.97
+random_preset_170.yaml:
+encoder_repetition_penalty: 1.23
+repetition_penalty: 1.09
+temperature: 0.05
+top_a: 0.72
+top_k: 76
+top_p: 0.07
+typical_p: 0.2
+random_preset_186.yaml:
+repetition_penalty: 1.13
+temperature: 1.26
+top_k: 18
+top_p: 0.5
+typical_p: 0.56
+simple-1.yaml:
+repetition_penalty: 1.15
+temperature: 0.7
+top_k: 20
+top_p: 0.9
+random_preset_142.yaml:
+repetition_penalty: 1.27
+temperature: 1.35
+tfs: 0.94
+top_k: 41
+top_p: 0.92
+random_preset_041.yaml:
+repetition_penalty: 1.12
+temperature: 0.23
+top_k: 91
+top_p: 0.82
+random_preset_135.yaml:
+repetition_penalty: 1.03
+temperature: 1.59
+top_k: 55
+top_p: 0.76
+simple-4.yaml:
+repetition_penalty: 1.25
+temperature: 0.7
+top_p: 0.95
+random_preset_048.yaml:
+repetition_penalty: 1.32
+temperature: 1.54
+top_k: 28
+top_p: 0.6
+random_preset_125.yaml:
+eta_cutoff: 17.62
+repetition_penalty: 1.1
+temperature: 0.46
+top_k: 3
+top_p: 0.22
+random_preset_024.yaml:
+eta_cutoff: 17.74
+repetition_penalty: 1.38
+temperature: 1.47
+top_k: 82
+top_p: 0.35
+random_preset_102.yaml:
+repetition_penalty: 1.04
+temperature: 0.56
+top_k: 38
+top_p: 0.58
+Mirostat.yaml:
+mirostat_mode: 2
+simple-3.yaml:
+repetition_penalty: 1.15
+temperature: 0.7
+top_p: 0.95
+random_preset_028.yaml:
+encoder_repetition_penalty: 1.47
+epsilon_cutoff: 4.88
+repetition_penalty: 1.18
+temperature: 0.48
+top_k: 88
+top_p: 0.19
+pure-topk.yaml:
+repetition_penalty: 1.18
+temperature: 0.7
+top_k: 15
+random_preset_165.yaml:
+eta_cutoff: 5.01
+repetition_penalty: 1.19
+temperature: 1.86
+top_k: 47
+top_p: 0.54
+random_preset_077.yaml:
+repetition_penalty: 1.26
+temperature: 0.94
+tfs: 0.73
+top_k: 68
+top_p: 0.36
+random_preset_027.yaml:
+eta_cutoff: 8.99
+repetition_penalty: 1.21
+temperature: 1.87
+top_a: 0.54
+top_k: 16
+top_p: 0.17
+typical_p: 0.59
+random_preset_173.yaml:
+repetition_penalty: 1.27
+temperature: 0.41
+top_k: 6
+top_p: 0.85
+random_preset_074.yaml:
+epsilon_cutoff: 4.61
+repetition_penalty: 1.05
+temperature: 1.13
+top_k: 7
+top_p: 0.62
+random_preset_150.yaml:
+repetition_penalty: 1.09
+temperature: 0.01
+top_k: 66
+top_p: 0.82
+LLaMA-Precise.yaml:
+repetition_penalty: 1.18
+temperature: 0.7
+top_k: 40
+top_p: 0.1
+random_preset_067.yaml:
+repetition_penalty: 1.25
+temperature: 0.68
+top_a: 0.02
+top_k: 26
+top_p: 0.58
+random_preset_034.yaml:
+repetition_penalty: 1.38
+temperature: 1.19
+top_k: 47
+top_p: 0.36
+typical_p: 0.15
+random_preset_049.yaml:
+encoder_repetition_penalty: 1.4
+repetition_penalty: 1.18
+temperature: 0.63
+top_k: 47
+top_p: 0.9
+random_preset_114.yaml:
+repetition_penalty: 1.08
+temperature: 1.54
+top_k: 78
+top_p: 0.21
+random_preset_038.yaml:
+repetition_penalty: 1.14
+temperature: 0.32
+top_k: 44
+top_p: 0.01
+random_preset_053.yaml:
+repetition_penalty: 1.31
+temperature: 1.97
+top_k: 35
+top_p: 0.95
+typical_p: 0.23
+random_preset_138.yaml:
+repetition_penalty: 1.12
+temperature: 1.34
+top_k: 86
+top_p: 0.07
+random_preset_167.yaml:
+repetition_penalty: 1.05
+temperature: 0.03
+top_k: 12
+top_p: 0.01
+random_preset_197.yaml:
+epsilon_cutoff: 6.82
+repetition_penalty: 1.07
+temperature: 0.48
+top_k: 86
+top_p: 0.29
+random_preset_016.yaml:
+repetition_penalty: 1.29
+temperature: 1.55
+tfs: 0.91
+top_a: 0.62
+top_k: 23
+top_p: 0.13
+typical_p: 0.16
+random_preset_066.yaml:
+epsilon_cutoff: 1.49
+eta_cutoff: 10.42
+repetition_penalty: 1.17
+temperature: 1.31
+top_a: 0.52
+top_k: 49
+top_p: 0.14
+Mirostat-5.yaml:
+mirostat_mode: 2
+mirostat_tau: 8
+random_preset_193.yaml:
+repetition_penalty: 1.01
+temperature: 1.75
+top_k: 48
+top_p: 0.87
+random_preset_129.yaml:
+repetition_penalty: 1.04
+temperature: 1.33
+top_k: 96
+top_p: 0.67
+random_preset_081.yaml:
+repetition_penalty: 1.45
+temperature: 0.59
+top_a: 0.53
+top_k: 42
+top_p: 0.04
+random_preset_060.yaml:
+repetition_penalty: 1.34
+temperature: 1.02
+top_k: 99
+top_p: 0.64
+random_preset_156.yaml:
+epsilon_cutoff: 5.8
+repetition_penalty: 1.29
+temperature: 0.43
+top_k: 60
+top_p: 0.68
+random_preset_069.yaml:
+repetition_penalty: 1.17
+temperature: 1.58
+top_k: 58
+top_p: 0.92
+random_preset_177.yaml:
+repetition_penalty: 1.04
+temperature: 0.27
+top_k: 78
+top_p: 0.09
+random_preset_055.yaml:
+repetition_penalty: 1.42
+temperature: 1.09
+tfs: 0.43
+top_k: 28
+top_p: 0.52
+random_preset_046.yaml:
+encoder_repetition_penalty: 1.31
+repetition_penalty: 1.32
+temperature: 1.18
+top_k: 16
+top_p: 0.39
+random_preset_151.yaml:
+encoder_repetition_penalty: 0.99
+repetition_penalty: 1.15
+temperature: 1.71
+top_k: 72
+top_p: 0.55
+random_preset_154.yaml:
+repetition_penalty: 1.28
+temperature: 0.76
+top_k: 45
+top_p: 0.88
+random_preset_062.yaml:
+repetition_penalty: 1.4
+temperature: 0.78
+top_k: 38
+top_p: 0.15
+oasst.yaml:
+repetition_penalty: 1.2
+top_k: 50
+top_p: 0.95
+random_preset_172.yaml:
+repetition_penalty: 1.02
+temperature: 0.67
+top_k: 11
+top_p: 0.15
+typical_p: 0.42
+Simple-2.yaml:
+repetition_penalty: 1.15
+tfs: 0.9
+top_k: 20
+random_preset_058.yaml:
+repetition_penalty: 1.2
+temperature: 1.71
+top_a: 0.63
+top_k: 49
+top_p: 0.78
+typical_p: 0.41
+random_preset_163.yaml:
+repetition_penalty: 1.06
+temperature: 1.23
+top_k: 20
+top_p: 0.44
+random_preset_153.yaml:
+epsilon_cutoff: 1.15
+repetition_penalty: 1.3
+temperature: 1.42
+tfs: 0.32
+top_k: 67
+top_p: 0.67
+typical_p: 0.28
+random_preset_082.yaml:
+encoder_repetition_penalty: 1.29
+repetition_penalty: 1.34
+temperature: 0.3
+top_k: 36
+top_p: 0.7
+random_preset_103.yaml:
+repetition_penalty: 1.11
+temperature: 0.07
+top_k: 38
+top_p: 0.79
+random_preset_073.yaml:
+repetition_penalty: 1.43
+temperature: 1.91
+tfs: 0.9
+top_a: 0.4
+top_k: 14
+top_p: 0.87
+random_preset_184.yaml:
+repetition_penalty: 1.07
+temperature: 1.1
+top_k: 41
+top_p: 0.42
+NovelAI-Ouroboros.yaml:
+repetition_penalty: 1.05
+temperature: 1.07
+top_k: 100
+random_preset_006.yaml:
+repetition_penalty: 1.18
+temperature: 0.63
+tfs: 0.88
+top_a: 0.86
+top_k: 35
+top_p: 0.06
+starchat.yaml:
+temperature: 0.2
+top_k: 50
+top_p: 0.95
+eta-higher-temperature.yaml:
+eta_cutoff: 3
+repetition_penalty: 1.18
+random_preset_178.yaml:
+epsilon_cutoff: 6.1
+repetition_penalty: 1.06
+temperature: 0.88
+tfs: 0.72
+top_k: 18
+top_p: 0.75
+random_preset_147.yaml:
+repetition_penalty: 1.22
+temperature: 1.75
+top_k: 63
+top_p: 0.18
+Debug-deterministic.yaml:
+do_sample: false
+random_preset_002.yaml:
+repetition_penalty: 1.02
+temperature: 1.68
+tfs: 0.97
+top_a: 0.42
+top_k: 77
+top_p: 0.17
+random_preset_108.yaml:
+repetition_penalty: 1.21
+temperature: 0.72
+top_k: 40
+top_p: 0.42
+random_preset_111.yaml:
+repetition_penalty: 1.01
+temperature: 0.78
+top_k: 84
+top_p: 0.05
+random_preset_149.yaml:
+repetition_penalty: 1.18
+temperature: 0.78
+top_k: 13
+top_p: 0.67
+random_preset_072.yaml:
+epsilon_cutoff: 7.2
+repetition_penalty: 1.09
+temperature: 0.3
+top_a: 0.15
+top_k: 21
+top_p: 0.36
+random_preset_133.yaml:
+eta_cutoff: 1.04
+repetition_penalty: 1.03
+temperature: 0.63
+top_k: 15
+top_p: 0.82
+random_preset_190.yaml:
+encoder_repetition_penalty: 0.86
+epsilon_cutoff: 7.94
+repetition_penalty: 1.2
+temperature: 0.49
+top_k: 24
+top_p: 0.04
+NovelAI-Pleasing Results.yaml:
+repetition_penalty: 1.15
+temperature: 0.44
+NovelAI-Sphinx Moth.yaml:
+repetition_penalty: 1.15
+temperature: 2.0
+top_k: 30
+top_p: 0.18
+random_preset_174.yaml:
+eta_cutoff: 12.2
+repetition_penalty: 1.18
+temperature: 1.05
+top_k: 2
+top_p: 0.72
+random_preset_106.yaml:
+epsilon_cutoff: 6.3
+repetition_penalty: 1.26
+temperature: 0.98
+top_k: 63
+top_p: 0.5
+random_preset_059.yaml:
+repetition_penalty: 1.33
+temperature: 0.74
+top_k: 96
+top_p: 0.31
+random_preset_094.yaml:
+repetition_penalty: 1.35
+temperature: 0.37
+top_k: 12
+top_p: 0.3
+random_preset_132.yaml:
+repetition_penalty: 1.27
+temperature: 1.5
+top_k: 65
+top_p: 0.63
+random_preset_187.yaml:
+epsilon_cutoff: 6.18
+repetition_penalty: 1.21
+temperature: 1.46
+top_k: 20
+top_p: 0.35
+typical_p: 0.51
+random_preset_000.yaml:
+repetition_penalty: 1.27
+temperature: 0.53
+tfs: 0.33
+top_a: 0.83
+top_k: 68
+top_p: 0.02
+random_preset_166.yaml:
+repetition_penalty: 1.29
+temperature: 0.5
+top_k: 73
+top_p: 0.93
+Special-Contrastive Search-4.yaml:
+do_sample: false
+penalty_alpha: 2.4
+top_k: 4
+random_preset_020.yaml:
+repetition_penalty: 1.25
+temperature: 0.23
+top_k: 74
+top_p: 0.59
+random_preset_014.yaml:
+repetition_penalty: 1.48
+temperature: 1.75
+tfs: 0.22
+top_a: 0.94
+top_k: 51
+top_p: 0.44
+random_preset_068.yaml:
+epsilon_cutoff: 6.56
+repetition_penalty: 1.44
+temperature: 0.85
+top_k: 2
+top_p: 0.19
+random_preset_164.yaml:
+repetition_penalty: 1.1
+temperature: 0.02
+top_k: 51
+top_p: 0.63
+random_preset_168.yaml:
+repetition_penalty: 1.01
+temperature: 0.05
+top_a: 0.53
+top_k: 62
+top_p: 0.31
+Kobold-Liminal Drift.yaml:
+repetition_penalty: 1.1
+temperature: 0.66
+typical_p: 0.6
+random_preset_101.yaml:
+repetition_penalty: 1.18
+temperature: 0.98
+top_k: 100
+top_p: 0.37
+random_preset_021.yaml:
+repetition_penalty: 1.29
+temperature: 1.62
+top_k: 40
+top_p: 0.98
+typical_p: 0.22
+Mirostat-4.yaml:
+mirostat_mode: 2
+mirostat_tau: 3
+random_preset_192.yaml:
+repetition_penalty: 1.04
+temperature: 1.6
+top_k: 40
+top_p: 0.03
+random_preset_057.yaml:
+encoder_repetition_penalty: 1.33
+epsilon_cutoff: 8.07
+eta_cutoff: 15.69
+repetition_penalty: 1.48
+temperature: 0.98
+top_k: 57
+top_p: 0.11
+typical_p: 0.49
+random_preset_182.yaml:
+repetition_penalty: 1.1
+temperature: 0.82
+top_k: 81
+top_p: 0.27
+random_preset_076.yaml:
+repetition_penalty: 1.24
+temperature: 0.89
+top_k: 35
+top_p: 0.8
+random_preset_003.yaml:
+repetition_penalty: 1.26
+temperature: 1.28
+tfs: 0.62
+top_a: 0.64
+top_k: 59
+top_p: 0.44
+typical_p: 0.86
+top-a.yaml:
+repetition_penalty: 1.15
+temperature: 0.7
+top_a: 0.2
+random_preset_051.yaml:
+repetition_penalty: 1.27
+temperature: 1.21
+top_k: 46
+top_p: 0.91
+typical_p: 0.34
+random_preset_157.yaml:
+repetition_penalty: 1.2
+temperature: 0.62
+top_k: 24
+top_p: 0.9
+random_preset_035.yaml:
+repetition_penalty: 1.09
+temperature: 1.31
+top_k: 72
+top_p: 0.29
+random_preset_115.yaml:
+eta_cutoff: 11.38
+repetition_penalty: 1.06
+temperature: 1.36
+top_k: 50
+top_p: 0.19
+Mirostat-3.yaml:
+mirostat_eta: 0.4
+mirostat_mode: 2
+random_preset_095.yaml:
+repetition_penalty: 1.17
+temperature: 1.68
+top_k: 92
+top_p: 0.5
+random_preset_126.yaml:
+epsilon_cutoff: 0.27
+temperature: 1.52
+top_a: 0.55
+top_k: 22
+top_p: 0.12
+typical_p: 0.43
+random_preset_121.yaml:
+encoder_repetition_penalty: 0.91
+repetition_penalty: 1.15
+temperature: 1.26
+tfs: 0.23
+top_k: 49
+top_p: 0.03
+random_preset_145.yaml:
+eta_cutoff: 7.61
+repetition_penalty: 1.11
+temperature: 0.69
+top_k: 60
+top_p: 0.49
+random_preset_031.yaml:
+repetition_penalty: 1.31
+temperature: 0.82
+top_k: 28
+top_p: 0.81
+Special-Contrastive Search-1.yaml:
+do_sample: false
+penalty_alpha: 0.9
+top_k: 4
+random_preset_026.yaml:
+repetition_penalty: 1.42
+temperature: 1.2
+top_k: 74
+top_p: 0.99
+random_preset_161.yaml:
+repetition_penalty: 1.19
+temperature: 0.82
+top_k: 72
+top_p: 0.21
+random_preset_042.yaml:
+repetition_penalty: 1.14
+temperature: 0.83
+top_k: 17
+top_p: 0.36
+epsilon.yaml:
+epsilon_cutoff: 3
+repetition_penalty: 1.18
+random_preset_009.yaml:
+eta_cutoff: 14.88
+repetition_penalty: 1.29
+temperature: 1.37
+tfs: 0.11
+top_a: 0.2
+top_k: 40
+top_p: 0.65
+Naive.yaml:
+temperature: 0.7
+top_k: 50
+top_p: 0.85
+random_preset_043.yaml:
+repetition_penalty: 1.45
+temperature: 0.92
+top_k: 36
+top_p: 0.69
+typical_p: 0.1
+random_preset_019.yaml:
+repetition_penalty: 1.23
+temperature: 1.29
+tfs: 0.42
+top_a: 0.43
+top_k: 23
+top_p: 0.15
+typical_p: 0.41
+random_preset_105.yaml:
+epsilon_cutoff: 1.59
+repetition_penalty: 1.02
+temperature: 1.27
+top_k: 5
+top_p: 0.95
+random_preset_052.yaml:
+repetition_penalty: 1.49
+temperature: 0.39
+top_k: 82
+top_p: 0.31
+random_preset_099.yaml:
+epsilon_cutoff: 2.73
+repetition_penalty: 1.42
+temperature: 1.61
+top_a: 0.06
+top_k: 38
+top_p: 0.13
+Special-Contrastive Search.yaml:
+do_sample: false
+penalty_alpha: 0.6
+top_k: 4
+random_preset_117.yaml:
+repetition_penalty: 1.26
+temperature: 1.24
+top_k: 67
+top_p: 0.61
+random_preset_065.yaml:
+eta_cutoff: 10.58
+repetition_penalty: 1.1
+temperature: 0.9
+top_k: 43
+top_p: 0.57
+random_preset_093.yaml:
+encoder_repetition_penalty: 0.89
+repetition_penalty: 1.5
+temperature: 1.26
+top_k: 24
+top_p: 0.18
+random_preset_181.yaml:
+repetition_penalty: 1.24
+temperature: 0.42
+top_k: 93
+top_p: 0.3
+random_preset_080.yaml:
+repetition_penalty: 1.21
+temperature: 1.53
+top_k: 95
+top_p: 0.36
+typical_p: 0.07
+random_preset_018.yaml:
+encoder_repetition_penalty: 1.21
+epsilon_cutoff: 6.98
+repetition_penalty: 1.01
+temperature: 1.48
+tfs: 0.4
+top_a: 0.32
+top_k: 55
+top_p: 0.51
+typical_p: 0.19
+random_preset_017.yaml:
+encoder_repetition_penalty: 1.32
+repetition_penalty: 1.39
+temperature: 0.89
+tfs: 0.6
+top_a: 0.41
+top_k: 61
+top_p: 0.98
+typical_p: 0.99
+random_preset_036.yaml:
+repetition_penalty: 1.5
+temperature: 0.02
+top_k: 70
+top_p: 0.18
+random_preset_110.yaml:
+repetition_penalty: 1.05
+temperature: 0.77
+top_k: 67
+top_p: 0.26
+random_preset_128.yaml:
+repetition_penalty: 1.16
+temperature: 1.14
+tfs: 0.06
+top_k: 76
+top_p: 0.97
+random_preset_011.yaml:
+repetition_penalty: 1.36
+temperature: 0.54
+tfs: 0.81
+top_a: 0.29
+top_k: 21
+top_p: 0.2
+random_preset_092.yaml:
+eta_cutoff: 18.29
+repetition_penalty: 1.02
+temperature: 1.3
+top_k: 88
+top_p: 0.06
+random_preset_033.yaml:
+repetition_penalty: 1.38
+temperature: 0.89
+top_k: 29
+top_p: 0.11
+random_preset_116.yaml:
+repetition_penalty: 1.26
+temperature: 0.35
+top_k: 63
+top_p: 0.04
+random_preset_122.yaml:
+repetition_penalty: 1.1
+temperature: 1.24
+top_k: 61
+top_p: 0.08
+random_preset_139.yaml:
+encoder_repetition_penalty: 1.2
+repetition_penalty: 1.27
+temperature: 0.09
+top_k: 37
+top_p: 0.56
+random_preset_087.yaml:
+repetition_penalty: 1.16
+temperature: 0.16
+top_a: 0.35
+top_k: 67
+top_p: 0.62
+random_preset_143.yaml:
+epsilon_cutoff: 2.94
+repetition_penalty: 1.08
+temperature: 1.17
+top_k: 46
+top_p: 0.37
+random_preset_010.yaml:
+epsilon_cutoff: 3.38
+repetition_penalty: 1.44
+temperature: 1.24
+top_a: 0.13
+top_k: 75
+top_p: 0.18
+random_preset_107.yaml:
+repetition_penalty: 1.13
+temperature: 0.29
+top_k: 15
+top_p: 0.94
+random_preset_199.yaml:
+repetition_penalty: 1.13
+temperature: 0.89
+tfs: 0.61
+top_k: 99
+top_p: 0.96
+random_preset_158.yaml:
+repetition_penalty: 1.16
+temperature: 1.02
+top_k: 76
+top_p: 0.68
+random_preset_140.yaml:
+repetition_penalty: 1.1
+temperature: 0.43
+top_k: 57
+top_p: 0.7
+random_preset_127.yaml:
+epsilon_cutoff: 6.82
+repetition_penalty: 1.21
+temperature: 0.9
+top_k: 22
+top_p: 0.32
+random_preset_195.yaml:
+repetition_penalty: 1.04
+temperature: 0.94
+top_k: 3
+top_p: 0.63
+random_preset_044.yaml:
+epsilon_cutoff: 6.41
+repetition_penalty: 1.29
+temperature: 1.71
+tfs: 0.98
+top_k: 93
+top_p: 0.99
+random_preset_050.yaml:
+repetition_penalty: 1.35
+temperature: 0.26
+top_k: 53
+top_p: 0.07
+random_preset_131.yaml:
+repetition_penalty: 1.01
+temperature: 0.77
+top_k: 30
+top_p: 0.77
+random_preset_005.yaml:
+epsilon_cutoff: 4.65
+repetition_penalty: 1.04
+temperature: 0.1
+tfs: 0.23
+top_a: 0.57
+top_k: 78
+top_p: 0.05
+Special-Contrastive Search-3.yaml:
+do_sample: false
+penalty_alpha: 0.3
+top_k: 4
+random_preset_091.yaml:
+epsilon_cutoff: 8.79
+repetition_penalty: 1.32
+temperature: 1.5
+top_k: 57
+top_p: 0.18
+strong-tfs.yaml:
+repetition_penalty: 1.18
+temperature: 0.7
+tfs: 0.8
+random_preset_159.yaml:
+epsilon_cutoff: 2.53
+repetition_penalty: 1.22
+temperature: 1.63
+top_k: 36
+top_p: 0.97
+random_preset_025.yaml:
+repetition_penalty: 1.29
+temperature: 0.8
+top_k: 24
+top_p: 0.11
+typical_p: 0.92
+random_preset_169.yaml:
+repetition_penalty: 1.01
+temperature: 0.24
+top_k: 92
+top_p: 0.78
+random_preset_023.yaml:
+repetition_penalty: 1.12
+temperature: 0.83
+top_k: 9
+top_p: 0.55
+random_preset_134.yaml:
+repetition_penalty: 1.01
+temperature: 0.87
+tfs: 0.68
+top_k: 85
+top_p: 0.99
+typical_p: 0.68
+NovelAI-Storywriter.yaml:
+repetition_penalty: 1.1
+temperature: 0.72
+top_p: 0.73
+random_preset_089.yaml:
+repetition_penalty: 1.44
+temperature: 1.06
+top_k: 61
+top_p: 0.25
+random_preset_152.yaml:
+repetition_penalty: 1.2
+temperature: 1.44
+top_k: 60
+top_p: 0.29
+random_preset_176.yaml:
+repetition_penalty: 1.27
+temperature: 1.55
+top_k: 17
+top_p: 0.31
+random_preset_075.yaml:
+repetition_penalty: 1.25
+temperature: 0.67
+top_a: 0.79
+top_k: 97
+top_p: 0.92
+random_preset_160.yaml:
+repetition_penalty: 1.24
+temperature: 0.05
+top_k: 2
+top_p: 0.52
+random_preset_175.yaml:
+repetition_penalty: 1.09
+temperature: 0.63
+top_k: 9
+top_p: 0.02
+random_preset_045.yaml:
+repetition_penalty: 1.33
+temperature: 0.57
+top_a: 0.17
+top_k: 100
+top_p: 0.78
+random_preset_030.yaml:
+repetition_penalty: 1.39
+temperature: 1.14
+top_k: 19
+top_p: 0.41
+Special-Contrastive Search-2.yaml:
+do_sample: false
+penalty_alpha: 1.2
+top_k: 4
+random_preset_124.yaml:
+repetition_penalty: 1.29
+temperature: 1.86
+top_k: 40
+top_p: 0.37
+random_preset_191.yaml:
+encoder_repetition_penalty: 1.04
+repetition_penalty: 1.15
+temperature: 0.59
+tfs: 0.48
+top_a: 0.42
+top_k: 94
+top_p: 0.81
+NovelAI-Best Guess.yaml:
+repetition_penalty: 1.15
+temperature: 0.8
+top_k: 100
+top_p: 0.9
+random_preset_085.yaml:
+repetition_penalty: 1.48
+temperature: 0.08
+top_k: 24
+top_p: 0.51
+random_preset_136.yaml:
+repetition_penalty: 1.22
+temperature: 1.5
+top_k: 61
+top_p: 0.32
+random_preset_146.yaml:
+repetition_penalty: 1.14
+temperature: 1.59
+top_k: 12
+top_p: 0.33
+random_preset_083.yaml:
+epsilon_cutoff: 5.73
+repetition_penalty: 1.49
+temperature: 0.11
+top_k: 97
+top_p: 0.59
+random_preset_040.yaml:
+repetition_penalty: 1.35
+temperature: 0.06
+top_a: 0.84
+top_k: 93
+top_p: 0.79
+random_preset_112.yaml:
+repetition_penalty: 1.26
+temperature: 0.54
+tfs: 0.35
+top_k: 94
+top_p: 0.36
+random_preset_064.yaml:
+repetition_penalty: 1.35
+temperature: 1.94
+top_a: 0.82
+top_k: 5
+top_p: 0.59
+random_preset_013.yaml:
+repetition_penalty: 1.08
+temperature: 0.03
+tfs: 0.12
+top_a: 0.12
+top_k: 80
+top_p: 0.76
+random_preset_097.yaml:
+repetition_penalty: 1.38
+temperature: 1.82
+top_k: 67
+top_p: 0.49
+random_preset_070.yaml:
+encoder_repetition_penalty: 0.86
+epsilon_cutoff: 5.08
+repetition_penalty: 1.24
+temperature: 1.76
+tfs: 0.19
+top_a: 0.02
+top_k: 35
+top_p: 0.31
+random_preset_123.yaml:
+repetition_penalty: 1.12
+temperature: 1.8
+top_k: 100
+top_p: 0.34
+random_preset_109.yaml:
+repetition_penalty: 1.11
+temperature: 1.34
+top_k: 73
+top_p: 0.51
+random_preset_001.yaml:
+repetition_penalty: 1.28
+temperature: 0.46
+tfs: 0.89
+top_a: 0.73
+top_k: 45
+top_p: 0.76
+typical_p: 0.51
+random_preset_071.yaml:
+repetition_penalty: 1.13
+temperature: 0.14
+top_k: 9
+top_p: 0.71
+epsilon-and-eta.yaml:
+epsilon_cutoff: 3
+eta_cutoff: 3
+repetition_penalty: 1.18
+temperature: 0.7
+random_preset_188.yaml:
+epsilon_cutoff: 5.72
+repetition_penalty: 1.14
+temperature: 1.14
+top_k: 71
+top_p: 0.18
+random_preset_141.yaml:
+repetition_penalty: 1.24
+temperature: 1.42
+top_k: 49
+top_p: 0.37
+random_preset_120.yaml:
+repetition_penalty: 1.07
+temperature: 1.53
+top_a: 0.04
+top_k: 33
+top_p: 0.64
+random_preset_090.yaml:
+encoder_repetition_penalty: 1.45
+eta_cutoff: 13.6
+repetition_penalty: 1.03
+temperature: 1.46
+top_k: 57
+top_p: 0.33
+random_preset_194.yaml:
+eta_cutoff: 17.67
+repetition_penalty: 1.13
+temperature: 1.74
+tfs: 0.56
+top_k: 63
+top_p: 0.05
+random_preset_180.yaml:
+epsilon_cutoff: 4.67
+eta_cutoff: 12.47
+repetition_penalty: 1.27
+temperature: 1.6
+top_k: 63
+top_p: 0.49

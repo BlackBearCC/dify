@@ -296,3 +296,29 @@ class TechnicalAnalyst(BaseAnalyst):
                 print(f"❌ 格式化K线数据失败: {e}")
         
         return '\n'.join(lines)
+    
+    def analyze_crypto_technical(self, symbol: str) -> str:
+        """
+        为crypto_monitor_project提供的技术分析接口
+        兼容原crypto_bot的调用方式
+        
+        Args:
+            symbol: 币种符号
+            
+        Returns:
+            str: 技术分析结果
+        """
+        try:
+            # 模拟调用分析接口，实际应该通过data_service获取数据
+            context = {
+                'symbol': symbol,
+                'indicators': {},
+                'market_data': {},
+                'kline_data': []
+            }
+            
+            # 直接返回简化的分析结果，避免循环调用
+            return f"📈 {symbol}技术分析 - 分析功能正在完善中，请使用完整分析流程"
+            
+        except Exception as e:
+            return f"❌ {symbol}技术分析失败: {e}"

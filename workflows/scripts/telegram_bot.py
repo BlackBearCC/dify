@@ -17,9 +17,26 @@ try:
     TELEGRAM_AVAILABLE = True
 except ImportError:
     TELEGRAM_AVAILABLE = False
-    print("❌ 未安装python-telegram-bot库，请运行: pip install python-telegram-bot")
+    print("未安装python-telegram-bot库，请运行: pip install python-telegram-bot")
+    # 定义空的类型避免NameError
+    class Update: pass
+    class ContextTypes:
+        DEFAULT_TYPE = None
+    class InlineKeyboardMarkup: pass
+    class InlineKeyboardButton: pass
 
-from crypto_bot import Crypto24hMonitor
+# 支持两种导入方式：crypto_bot 和 crypto_monitor_project
+try:
+    from crypto_bot import Crypto24hMonitor
+    CRYPTO_BOT_TYPE = 'crypto_bot'
+except ImportError:
+    try:
+        from crypto_monitor_project.crypto_monitor_controller import CryptoMonitorController as Crypto24hMonitor
+        CRYPTO_BOT_TYPE = 'crypto_monitor_project'
+    except ImportError:
+        print("无法导入加密货币监控系统")
+        Crypto24hMonitor = None
+        CRYPTO_BOT_TYPE = None
 
 class CryptoTelegramBot:
     def __init__(self, token: str, chat_id: str, crypto_monitor: Crypto24hMonitor):
@@ -44,9 +61,13 @@ class CryptoTelegramBot:
         }
         
         # 支持的币种（从配置中获取）
-        primary_symbols = getattr(crypto_monitor.settings.monitor, 'primary_symbols', []) or []
-        secondary_symbols = getattr(crypto_monitor.settings.monitor, 'secondary_symbols', []) or []
-        self.supported_symbols = primary_symbols + secondary_symbols
+        if hasattr(crypto_monitor, 'settings') and hasattr(crypto_monitor.settings, 'monitor'):
+            primary_symbols = getattr(crypto_monitor.settings.monitor, 'primary_symbols', []) or []
+            secondary_symbols = getattr(crypto_monitor.settings.monitor, 'secondary_symbols', []) or []
+            self.supported_symbols = primary_symbols + secondary_symbols
+        else:
+            # 默认支持的币种
+            self.supported_symbols = ['BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'DOGEUSDT']
         
         # 交易确认状态管理
         self.pending_trades = {}  # 存储待确认的交易
@@ -285,65 +306,81 @@ class CryptoTelegramBot:
             await update.message.reply_text(f"❌ 处理分析请求失败: {e}")
 
     async def _get_or_generate_report(self, role: str, symbol: str) -> Optional[str]:
-        """获取或生成指定角色的报告"""
+        """获取或生成指定角色的报告 - 兼容crypto_monitor_project和crypto_bot"""
         try:
-            data_type = self.supported_roles[role]
-            agent_name = role
+            if CRYPTO_BOT_TYPE == 'crypto_monitor_project':
+                # crypto_monitor_project的方法调用
+                if role == '技术分析师':
+                    return self.crypto_monitor.analyze_kline_data(symbol)
+                elif role == '市场分析师':
+                    return self.crypto_monitor.analyze_market_sentiment()
+                elif role in ['基本面分析师', '宏观分析师', '首席分析师']:
+                    # 使用ask_claude_with_data进行分析
+                    question = f"请进行{role}分析 {symbol}"
+                    return self.crypto_monitor.ask_claude_with_data(question, [symbol])
+                else:
+                    # 通用处理
+                    return f"❌ 暂不支持{role}报告"
+                    
+            else:
+                # 原crypto_bot的逻辑
+                data_type = self.supported_roles[role]
+                agent_name = role
+                
+                # 特殊处理不同类型的报告
+                if role in ['技术分析师']:
+                    # 技术分析每次都重新生成（实时性要求高）
+                    return self.crypto_monitor.analyze_kline_data(symbol)
+                    
+                elif role == '市场分析师':
+                    # 市场情绪分析（全市场，不针对特定币种）
+                    cached = self.crypto_monitor.get_today_analysis('market_sentiment', '市场分析师')
+                    if cached:
+                        return cached
+                    return self.crypto_monitor.analyze_market_sentiment()
+                    
+                elif role == '基本面分析师':
+                    # 基本面分析
+                    data_type_with_symbol = f'fundamental_analysis_{symbol}'
+                    cached = self.crypto_monitor.get_today_analysis(data_type_with_symbol, '基本面分析师')
+                    if cached:
+                        return cached
+                    return self.crypto_monitor.analyze_fundamental_data(symbol)
+                    
+                elif role == '宏观分析师':
+                    # 宏观分析（全市场）
+                    cached = self.crypto_monitor.get_today_analysis('macro_analysis', '宏观分析师')
+                    if cached:
+                        return cached
+                    return self.crypto_monitor.analyze_macro_data()
+                    
+                elif role == '首席分析师':
+                    # 币种首席分析师
+                    data_type_with_symbol = f'coin_chief_analysis_{symbol}'
+                    cached = self.crypto_monitor.get_today_analysis(data_type_with_symbol, f'{symbol}首席分析师')
+                    if cached:
+                        return cached
+                        
+                    # 如果没有缓存，需要先生成四维度分析
+                    technical = self.crypto_monitor.analyze_kline_data(symbol)
+                    sentiment = self.crypto_monitor.analyze_market_sentiment()
+                    fundamental = self.crypto_monitor.analyze_fundamental_data(symbol)
+                    macro = self.crypto_monitor.analyze_macro_data()
+                    
+                    return self.crypto_monitor.generate_coin_chief_analysis(
+                        symbol, technical, sentiment, fundamental, macro
+                    )
+                    
+                elif role == '研究部门总监':
+                    # 研究部门综合报告
+                    cached = self.crypto_monitor.get_today_analysis('research_summary', '研究部门总监')
+                    if cached:
+                        return cached
+                        
+                    # 需要执行完整的研究分析
+                    research_results = self.crypto_monitor.conduct_research_analysis([symbol])
+                    return research_results['research_summary']
             
-            # 特殊处理不同类型的报告
-            if role in ['技术分析师']:
-                # 技术分析每次都重新生成（实时性要求高）
-                return self.crypto_monitor.analyze_kline_data(symbol)
-                
-            elif role == '市场分析师':
-                # 市场情绪分析（全市场，不针对特定币种）
-                cached = self.crypto_monitor.get_today_analysis('market_sentiment', '市场分析师')
-                if cached:
-                    return cached
-                return self.crypto_monitor.analyze_market_sentiment()
-                
-            elif role == '基本面分析师':
-                # 基本面分析
-                data_type_with_symbol = f'fundamental_analysis_{symbol}'
-                cached = self.crypto_monitor.get_today_analysis(data_type_with_symbol, '基本面分析师')
-                if cached:
-                    return cached
-                return self.crypto_monitor.analyze_fundamental_data(symbol)
-                
-            elif role == '宏观分析师':
-                # 宏观分析（全市场）
-                cached = self.crypto_monitor.get_today_analysis('macro_analysis', '宏观分析师')
-                if cached:
-                    return cached
-                return self.crypto_monitor.analyze_macro_data()
-                
-            elif role == '首席分析师':
-                # 币种首席分析师
-                data_type_with_symbol = f'coin_chief_analysis_{symbol}'
-                cached = self.crypto_monitor.get_today_analysis(data_type_with_symbol, f'{symbol}首席分析师')
-                if cached:
-                    return cached
-                    
-                # 如果没有缓存，需要先生成四维度分析
-                technical = self.crypto_monitor.analyze_kline_data(symbol)
-                sentiment = self.crypto_monitor.analyze_market_sentiment()
-                fundamental = self.crypto_monitor.analyze_fundamental_data(symbol)
-                macro = self.crypto_monitor.analyze_macro_data()
-                
-                return self.crypto_monitor.generate_coin_chief_analysis(
-                    symbol, technical, sentiment, fundamental, macro
-                )
-                
-            elif role == '研究部门总监':
-                # 研究部门综合报告
-                cached = self.crypto_monitor.get_today_analysis('research_summary', '研究部门总监')
-                if cached:
-                    return cached
-                    
-                # 需要执行完整的研究分析
-                research_results = self.crypto_monitor.conduct_research_analysis([symbol])
-                return research_results['research_summary']
-                
             return None
             
         except Exception as e:
@@ -561,10 +598,29 @@ class CryptoTelegramBot:
                 await asyncio.sleep(1)
 
     async def message_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """处理普通消息"""
+        """处理普通消息 - 支持直接消息转发给agent"""
         text = update.message.text.strip()
+        user_name = update.message.from_user.first_name if update.message.from_user else "用户"
         
-        # 简单的自然语言处理
+        print(f"📱 Telegram收到消息: {text} (来自: {user_name})")
+        
+        # 如果是crypto_monitor_project，支持直接消息处理
+        if CRYPTO_BOT_TYPE == 'crypto_monitor_project' and hasattr(self.crypto_monitor, 'process_user_message'):
+            try:
+                await update.message.reply_text("🤖 正在处理您的消息...")
+                
+                # 调用crypto_monitor_project的智能消息处理
+                response = self.crypto_monitor.process_user_message(text)
+                
+                # 发送回复
+                await self._send_long_message(update, f"🧠 **智能助手回复：**\n\n{response}")
+                return
+                
+            except Exception as e:
+                await update.message.reply_text(f"❌ 消息处理失败: {e}")
+                print(f"❌ 消息处理错误: {e}")
+        
+        # 简单的自然语言处理（兼容模式）
         if any(word in text.lower() for word in ['分析', 'analyze', '报告', 'report']):
             reply_markup = self._create_main_menu()
             await update.message.reply_text(
@@ -575,7 +631,7 @@ class CryptoTelegramBot:
         else:
             reply_markup = self._create_main_menu()
             await update.message.reply_text(
-                "🤖 我是加密货币监控助手！\n点击下方按钮开始使用：",
+                "🤖 我是加密货币监控助手！\n✨ **智能对话模式**：直接发送消息给我，我会智能处理\n📊 **快捷功能**：点击下方按钮快速访问：",
                 reply_markup=reply_markup
             )
 
@@ -598,7 +654,7 @@ class CryptoTelegramBot:
         self.application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.message_handler))
 
     async def start_bot(self):
-        """启动Telegram机器人"""
+        """启动Telegram机器人 - 确保持续运行"""
         try:
             if not TELEGRAM_AVAILABLE:
                 print("❌ Telegram功能不可用：请安装python-telegram-bot库")
@@ -615,31 +671,60 @@ class CryptoTelegramBot:
             # 启动机器人
             await self.application.initialize()
             await self.application.start()
-            await self.application.updater.start_polling()
             
             self.running = True
             print(f"✅ Telegram机器人已启动，Chat ID: {self.chat_id}")
+            print("📱 智能对话模式已激活：用户可直接发送消息进行对话")
             
             # 发送启动通知
             try:
+                welcome_text = """🚀 **加密货币监控系统已启动**
+
+✨ **智能对话模式已激活**
+• 直接发送消息给我，我会智能回复
+• 支持市场分析、币种查询、交易建议等
+
+📊 **快捷功能**
+• 发送 `/help` 查看所有命令
+• 点击下方按钮快速访问功能"""
+                
+                reply_markup = self._create_main_menu()
+                
                 await self.application.bot.send_message(
                     chat_id=self.chat_id,
-                    text="🚀 **加密货币监控系统已启动**\n\n发送 `/help` 查看可用命令。",
-                    parse_mode='Markdown'
+                    text=welcome_text,
+                    parse_mode='Markdown',
+                    reply_markup=reply_markup
                 )
             except Exception as e:
                 print(f"⚠️ 发送启动通知失败: {e}")
             
-            # 保持运行
-            while self.running:
-                await asyncio.sleep(1)
+            # 保持运行 - 使用polling方式持续运行，不会停止
+            try:
+                # 机器人会一直运行直到收到停止信号
+                await self.application.updater.start_polling()
+                # 使用更稳定的运行方式
+                await asyncio.Future()  # 永远等待，直到被取消
+            except asyncio.CancelledError:
+                print("📱 收到停止信号")
+            except KeyboardInterrupt:
+                print("📱 收到停止信号")
+            except Exception as e:
+                print(f"⚠️ 机器人运行期间发生异常: {e}")
+                # 如果发生异常，等待一段时间后重试
+                await asyncio.sleep(5)
+                if self.running:
+                    print("🔄 尝试重新启动...")
+                    await self.start_bot()
                 
         except Exception as e:
             print(f"❌ Telegram机器人启动失败: {e}")
         finally:
+            self.running = False
             if self.application:
                 await self.application.stop()
                 await self.application.shutdown()
+                print("⏹️ Telegram机器人已关闭")
 
     def stop_bot(self):
         """停止Telegram机器人"""

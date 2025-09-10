@@ -573,6 +573,9 @@ x-shared-env: &shared-api-worker-env
   ENABLE_MAIL_CLEAN_DOCUMENT_NOTIFY_TASK: ${ENABLE_MAIL_CLEAN_DOCUMENT_NOTIFY_TASK:-false}
   ENABLE_DATASETS_QUEUE_MONITOR: ${ENABLE_DATASETS_QUEUE_MONITOR:-false}
   ENABLE_CHECK_UPGRADABLE_PLUGIN_TASK: ${ENABLE_CHECK_UPGRADABLE_PLUGIN_TASK:-true}
+  SQLITE_TOOL_PORT: ${SQLITE_TOOL_PORT:-5555}
+  SQLITE_TOOL_FLASK_ENV: ${SQLITE_TOOL_FLASK_ENV:-production}
+  SQLITE_TOOL_PYTHONUNBUFFERED: ${SQLITE_TOOL_PYTHONUNBUFFERED:-1}
 
 services:
   # API service
@@ -647,6 +650,27 @@ services:
         condition: service_started
     networks:
       - ssrf_proxy_network
+      - default
+
+  # SQLite Tool service
+  # Provides SQLite database operations API for workflows
+  sqlite-tool:
+    build: ./sqlite-tool
+    restart: always
+    environment:
+      FLASK_ENV: ${SQLITE_TOOL_FLASK_ENV:-production}
+      PYTHONUNBUFFERED: ${SQLITE_TOOL_PYTHONUNBUFFERED:-1}
+    volumes:
+      # Mount SQLite data directory for persistence
+      - ./volumes/sqlite-tool/data:/app/data
+    ports:
+      - "${SQLITE_TOOL_PORT:-5555}:5555"
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://localhost:5555/health']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
       - default
 
   # Frontend web application.

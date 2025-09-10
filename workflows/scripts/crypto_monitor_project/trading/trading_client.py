@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-交易客户端
+交易客户端 - 基于crypto_bot.py的实现
 负责与币安期货API交互，执行交易操作
 """
 
@@ -17,7 +17,7 @@ except ImportError:
 
 
 class TradingClient:
-    """币安期货交易客户端"""
+    """币安期货交易客户端 - 采用crypto_bot.py的成功实现"""
     
     def __init__(self, settings: Settings):
         """
@@ -35,11 +35,12 @@ class TradingClient:
             print("⚠️ 未安装python-binance库，交易功能将不可用")
     
     def _init_binance_client(self):
-        """初始化币安客户端"""
+        """初始化币安客户端 - 参考crypto_bot.py实现"""
         try:
             import os
             api_key = os.getenv('BINANCE_API_KEY')
             api_secret = os.getenv('BINANCE_API_SECRET')
+            testnet = os.getenv('BINANCE_TESTNET', 'false').lower() == 'true'
             
             if not api_key or not api_secret:
                 print("⚠️ 未配置币安API密钥，交易功能将不可用")
@@ -48,39 +49,24 @@ class TradingClient:
             self.binance_client = Client(
                 api_key=api_key,
                 api_secret=api_secret,
-                testnet=self.settings.api.binance_testnet
+                testnet=testnet
             )
             
-            # 验证API权限
-            self._verify_api_permissions()
+            # 测试连接
+            self.binance_client.ping()
+            print("✅ 交易管理器初始化完成")
             
         except Exception as e:
             print(f"❌ 初始化币安客户端失败: {e}")
+            self.binance_client = None
     
-    def _verify_api_permissions(self):
-        """验证API权限"""
-        try:
-            if not self.binance_client:
-                return
-            
-            account_info = self.binance_client.futures_account()
-            can_trade = account_info.get('canTrade', False)
-            
-            if can_trade:
-                print("✅ 账户权限验证成功 - 可交易权限: True")
-            else:
-                print("⚠️ 账户权限验证失败 - 无交易权限")
-                
-        except Exception as e:
-            print(f"❌ API权限验证失败: {e}")
-    
-    def get_account_balance(self) -> Dict[str, Any]:
-        """获取账户余额（期货账户）"""
+    def get_account_balance(self):
+        """获取账户余额（期货账户余额）- 来自crypto_bot.py"""
         try:
             if not self.binance_client:
                 return {"error": "Binance客户端未初始化"}
             
-            # 获取期货账户余额
+            # 期货账户余额
             try:
                 account = self.binance_client.futures_account()
                 balances = {}
@@ -91,7 +77,7 @@ class TradingClient:
                     unrealized_profit = float(balance.get('unrealizedProfit', 0))
                     available_balance = float(balance.get('availableBalance', 0))
                     
-                    if wallet_balance > 0 or available_balance > 0:
+                    if wallet_balance > 0 or available_balance > 0:  # 显示有余额的币种
                         balances[asset] = {
                             'free': available_balance,
                             'locked': wallet_balance - available_balance,
@@ -99,10 +85,14 @@ class TradingClient:
                             'unrealized_profit': unrealized_profit
                         }
                 
-                return balances
+                return {
+                    "success": True,
+                    "balances": balances,
+                    "account_type": "期货账户"
+                }
                 
             except Exception as futures_error:
-                # 备用现货账户
+                # 如果期货API失败，尝试现货API作为备用
                 print(f"⚠️ 期货账户余额获取失败，尝试现货账户: {futures_error}")
                 account = self.binance_client.get_account()
                 balances = {}
@@ -117,26 +107,33 @@ class TradingClient:
                         balances[asset] = {
                             'free': free,
                             'locked': locked,
-                            'total': total
+                            'total': total,
+                            'unrealized_profit': 0
                         }
                 
-                return balances
+                return {
+                    "success": True,
+                    "balances": balances,
+                    "account_type": "现货账户（备用）"
+                }
             
         except Exception as e:
-            return {"error": f"获取账户余额失败: {str(e)}"}
+            return {"error": f"获取余额失败: {str(e)}"}
     
-    def get_current_positions(self) -> List[Dict[str, Any]]:
-        """获取当前持仓（永续）"""
+    def get_current_positions(self):
+        """获取当前持仓（永续）- 来自crypto_bot.py"""
         try:
             if not self.binance_client:
                 return {"error": "Binance客户端未初始化"}
             
+            # 获取永续持仓
             positions = self.binance_client.futures_position_information()
             active_positions = []
             
             for pos in positions:
                 position_amt = float(pos.get('positionAmt', 0))
                 if position_amt != 0:  # 只显示有持仓的
+                    # 获取基本信息
                     entry_price = float(pos.get('entryPrice', 0))
                     mark_price = float(pos.get('markPrice', 0))
                     pnl_value = float(pos.get('unRealizedProfit', 0))
@@ -155,84 +152,155 @@ class TradingClient:
                         'size': abs(position_amt),
                         'entry_price': entry_price,
                         'mark_price': mark_price,
-                        'pnl': pnl_value,
+                        'pnl_value': pnl_value,
                         'pnl_pct': pnl_pct,
-                        'margin_type': pos.get('marginType', 'ISOLATED'),
-                        'leverage': pos.get('leverage', '1')
+                        'notional': abs(position_amt) * mark_price
                     })
             
-            return active_positions
+            return {
+                "success": True,
+                "positions": active_positions,
+                "count": len(active_positions)
+            }
             
         except Exception as e:
             return {"error": f"获取持仓失败: {str(e)}"}
     
-    def place_futures_order(self, symbol: str, side: str, quantity: float, 
-                           order_type: str = "MARKET", price: Optional[float] = None, 
-                           stop_price: Optional[float] = None) -> Dict[str, Any]:
-        """下永续订单"""
+    def place_futures_order(self, symbol: str, side: str, quantity: float, order_type: str = "MARKET", price: float = None, stop_price: float = None):
+        """下永续订单 - 单向持仓模式 - 来自crypto_bot.py"""
         try:
             if not self.binance_client:
                 return {"error": "Binance客户端未初始化"}
             
-            # 参数验证
-            if not symbol or not side or quantity <= 0:
-                return {"error": "订单参数无效"}
+            # 安全检查
+            if quantity <= 0:
+                return {"error": "订单数量必须大于0"}
             
+            # 构建订单参数（单向持仓模式）
             order_params = {
                 'symbol': symbol,
                 'side': side.upper(),
                 'type': order_type.upper(),
-                'quantity': quantity,
+                'quantity': quantity
             }
             
-            if price and order_type.upper() in ['LIMIT', 'STOP']:
+            # 根据订单类型添加价格参数
+            if order_type.upper() in ['LIMIT', 'STOP', 'TAKE_PROFIT']:
+                if price is None:
+                    return {"error": f"{order_type}订单需要指定价格"}
                 order_params['price'] = price
+                order_params['timeInForce'] = 'GTC'  # Good Till Cancel
             
-            if stop_price and order_type.upper() in ['STOP_MARKET', 'TAKE_PROFIT_MARKET']:
+            if order_type.upper() in ['STOP_MARKET', 'TAKE_PROFIT_MARKET']:
+                if stop_price is None:
+                    return {"error": f"{order_type}订单需要指定触发价格"}
                 order_params['stopPrice'] = stop_price
             
-            # 执行订单
+            # 下单
             result = self.binance_client.futures_create_order(**order_params)
             
             return {
-                'success': True,
-                'orderId': result.get('orderId'),
-                'symbol': result.get('symbol'),
-                'side': result.get('side'),
-                'quantity': result.get('origQty'),
-                'price': result.get('price'),
-                'status': result.get('status')
+                "success": True,
+                "order_id": result['orderId'],
+                "symbol": result['symbol'],
+                "side": result['side'],
+                "type": result['type'],
+                "status": result['status'],
+                "quantity": result['origQty']
             }
             
         except Exception as e:
-            error_msg = str(e)
-            
-            # 特殊错误处理
-            if "-4061" in error_msg:
-                # 订单不存在错误，不算失败
-                return {"warning": f"订单操作提示: {error_msg}"}
-            
-            return {"error": f"下单失败: {error_msg}"}
+            error_str = str(e)
+            if "-4061" in error_str:
+                # -4061: 订单会立即触发，跳过不报错
+                return {"info": "订单会立即触发，已跳过"}
+            else:
+                return {"error": f"下单失败: {error_str}"}
     
-    def get_trading_tools_description(self) -> str:
-        """获取可用交易工具描述"""
-        return """
-可用交易工具:
-1. get_account_balance() - 查询账户余额
-2. get_current_positions() - 查询当前持仓
-3. place_futures_order() - 执行永续合约订单
-   - 支持市价单(MARKET)、限价单(LIMIT)
-   - 支持止损单(STOP_MARKET)、止盈单(TAKE_PROFIT_MARKET)
-4. 风险管理:
-   - 最大持仓数: {max_pos}
-   - 单笔最大仓位: {max_pos_pct}%
-   - 默认杠杆: {default_leverage}倍
-""".format(
-            max_pos=self.settings.risk.max_positions,
-            max_pos_pct=self.settings.risk.max_position_percent,
-            default_leverage=self.settings.risk.default_leverage
-        )
+    def set_leverage(self, symbol: str, leverage: int):
+        """设置杠杆倍数 - 来自crypto_bot.py"""
+        try:
+            if not self.binance_client:
+                return {"error": "Binance客户端未初始化"}
+            
+            result = self.binance_client.futures_change_leverage(
+                symbol=symbol,
+                leverage=leverage
+            )
+            
+            return {
+                "success": True,
+                "symbol": result['symbol'],
+                "leverage": result['leverage']
+            }
+            
+        except Exception as e:
+            return {"error": f"设置杠杆失败: {str(e)}"}
+    
+    def cancel_all_orders(self, symbol: str):
+        """取消所有订单 - 来自crypto_bot.py"""
+        try:
+            if not self.binance_client:
+                return {"error": "Binance客户端未初始化"}
+            
+            result = self.binance_client.futures_cancel_all_open_orders(symbol=symbol)
+            return {"success": True, "cancelled_orders": len(result)}
+            
+        except Exception as e:
+            return {"error": f"取消订单失败: {str(e)}"}
+    
+    def close_position(self, symbol: str):
+        """平仓 - 来自crypto_bot.py"""
+        try:
+            if not self.binance_client:
+                return {"error": "Binance客户端未初始化"}
+            
+            # 获取当前持仓
+            positions = self.binance_client.futures_position_information(symbol=symbol)
+            position = positions[0] if positions else None
+            
+            if not position:
+                return {"error": "未找到持仓信息"}
+            
+            position_amt = float(position['positionAmt'])
+            if position_amt == 0:
+                return {"error": "当前无持仓"}
+            
+            # 平仓：持多仓则卖出，持空仓则买入
+            side = 'SELL' if position_amt > 0 else 'BUY'
+            quantity = abs(position_amt)
+            
+            result = self.place_futures_order(
+                symbol=symbol,
+                side=side,
+                quantity=quantity,
+                order_type='MARKET'
+            )
+            
+            if result.get('success'):
+                return {
+                    "success": True,
+                    "message": f"已平仓 {symbol} {abs(position_amt)} 张",
+                    "order_result": result
+                }
+            else:
+                return result
+                
+        except Exception as e:
+            return {"error": f"平仓失败: {str(e)}"}
+    
+    def test_connectivity(self) -> bool:
+        """测试连接"""
+        try:
+            if not self.binance_client:
+                return False
+            
+            self.binance_client.ping()
+            return True
+            
+        except Exception:
+            return False
     
     def is_available(self) -> bool:
         """检查交易客户端是否可用"""
-        return self.binance_client is not None
+        return self.binance_client is not None and self.test_connectivity()

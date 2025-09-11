@@ -216,7 +216,7 @@ workflow:
       positionAbsolute:
         x: 80
         y: 282
-      selected: true
+      selected: false
       sourcePosition: right
       targetPosition: left
       type: custom
@@ -353,17 +353,16 @@ workflow:
         prompt_template:
         - id: 3a89b9f5-3cc0-4f7d-9b28-f5b2bc8d91c3
           role: system
-          text: "你需要基于指定的AI角色人设来生成话题内容。\n\n**AI角色人设：**\n{% if 1736424595123.love_letter_info\
-            \ %}\n{{#1736424595123.love_letter_info#}}\n{% else %}\n- 性格：友善温和，善于倾听和理解\n\
-            - 表达方式：自然真实，贴近日常对话\n- 语言风格：简洁明了，不过于正式\n{% endif %}\n\n**当前生成任务：**\n- 话题类型：{{#1736424595123.processed_topic_type#}}\n\
-            - 话题风格：{{#1736424595123.topic_config.style#}}\n- 内容特征：{{#1736424595123.topic_config.description#}}\n\
-            - 关键词范围：{{#1736424595123.search_keywords#}}\n{% if 1736424595123.additional_requirements\
-            \ %}\n- 额外要求：{{#1736424595123.additional_requirements#}}\n{% endif %}\n\
-            \n**生成要求：**\n1. 严格按照上述AI角色人设的性格特质和表达方式\n2. 话题要贴近现实，不要过于浮夸或不切实际\n3. 内容要具体生动，有讨论价值\n\
-            4. 避免时效性话题（如具体日期、当前事件等）\n5. 内容长度100-200字，语言自然流畅\n6. 确保内容积极正面，符合角色人设\n\n\
-            **输出格式：**\n严格按照以下JSON格式输出，不要添加任何其他文字：\n```json\n{\n  \"topic_title\":\
-            \ \"话题标题（10-30字）\",\n  \"topic_content\": \"详细内容描述（100-200字，体现角色人设）\"\
-            ,\n  \"category\": \"{{#1736424595123.processed_topic_type#}}\"\n}\n```\n"
+          text: "  基于指定的AI角色人设来生成话题内容。\n\n  **AI角色人设：**\n  {{#1736424595123.love_letter_info#}}\n\
+            \n  **当前生成任务：**\n  - 话题类型：{{#1736424595123.processed_topic_type#}}\n \
+            \ - 话题风格：{{#1736424595123.topic_config.style#}}\n  - 内容特征：{{#1736424595123.topic_config.description#}}\n\
+            \  - 关键词范围：{{#1736424595123.search_keywords#}}\n  - 额外要求：{{#1736424595123.additional_requirements#}}\n\
+            \n  **生成要求：**\n  1. 内容应体现角色自身的知识见解和认知\n  2. 以角色的视角分享知识，不假设与他人对话\n  3.\
+            \ 避免使用第二人称（如\"你\"）和对话引导词汇\n  4. 内容要体现角色的专业素养和知识底蕴\n  5. 内容长度100-200字，符合角色的表达风格\n\
+            \  6. 避免时效性话题，注重知识的深度和价值\n  7. 展现角色对该领域的理解和思考\n\n  **输出格式：**\n  严格按照以下JSON格式输出，不要添加任何其他文字：\n\
+            \  ```json\n  {\n    \"topic_title\": \"话题标题（10字以内）\",\n    \"topic_content\"\
+            : \"角色自身的知识内容描述（100-200字，体现角色认知）\",\n    \"category\": \"{{#1736424595123.processed_topic_type#}}\"\
+            \n  }\n"
         - id: 8b7c9f2e-1c45-4d8f-9e32-a5d6c7b8f9e0
           role: user
           text: '请根据上述要求，为"{{#1736424595123.processed_topic_type#}}"类别生成一个全新的话题和内容。
@@ -392,7 +391,7 @@ workflow:
       positionAbsolute:
         x: 992
         y: 282
-      selected: false
+      selected: true
       sourcePosition: right
       targetPosition: left
       type: custom
@@ -856,6 +855,6 @@ workflow:
       width: 44
       zIndex: 1002
     viewport:
-      x: -927.1429926530959
-      y: 193.9950867672758
-      zoom: 0.7944344000961063
+      x: 22.689862449477914
+      y: 281.98771527019073
+      zoom: 0.4948965777674281

@@ -385,9 +385,10 @@ workflow:
           enabled: false
       height: 117
       id: '1736424598201'
+      parentId: '1736424800000'
       position:
-        x: 992
-        y: 282
+        x: 304
+        y: 0
       positionAbsolute:
         x: 992
         y: 282
@@ -458,9 +459,10 @@ workflow:
           enabled: false
       height: 117
       id: '1736424599234'
+      parentId: '1736424800000'
       position:
-        x: 1296
-        y: 282
+        x: 608
+        y: 0
       positionAbsolute:
         x: 1296
         y: 282
@@ -562,9 +564,10 @@ workflow:
           variable: validated_count
       height: 81
       id: '1736424601456'
+      parentId: '1736424800000'
       position:
-        x: 1611.428911041789
-        y: 282
+        x: 923
+        y: 0
       positionAbsolute:
         x: 1611.428911041789
         y: 282
@@ -673,9 +676,10 @@ workflow:
           variable: success
       height: 81
       id: '1736424603678'
+      parentId: '1736424800000'
       position:
-        x: 2208
-        y: 282
+        x: 1520
+        y: 0
       positionAbsolute:
         x: 2208
         y: 282
@@ -791,9 +795,10 @@ workflow:
         type: tool
       height: 53
       id: '1757476920544'
+      parentId: '1736424800000'
       position:
-        x: 1904
-        y: 282
+        x: 1216
+        y: 0
       positionAbsolute:
         x: 1904
         y: 282

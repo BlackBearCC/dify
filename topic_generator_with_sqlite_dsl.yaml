@@ -30,13 +30,6 @@ workflow:
       - local_file
       - remote_url
       enabled: false
-      fileUploadConfig:
-        audio_file_size_limit: 50
-        batch_count_limit: 5
-        file_size_limit: 15
-        image_file_size_limit: 10
-        video_file_size_limit: 100
-        workflow_file_upload_limit: 10
       image:
         enabled: false
         number_limits: 3
@@ -215,7 +208,7 @@ workflow:
           required: false
           type: paragraph
           variable: love_letter_info
-      height: 169
+      height: 195
       id: '1736424593742'
       position:
         x: 80
@@ -223,58 +216,61 @@ workflow:
       positionAbsolute:
         x: 80
         y: 282
-      selected: false
+      selected: true
       sourcePosition: right
       targetPosition: left
       type: custom
       width: 243
     - data:
         code: "import json\nimport re\n\ndef main(topic_type: str, generation_count:\
-          \ str, additional_requirements: str, love_letter_info: str) -> dict:\n    \"\"\"\n    预处理输入参数和准备查询条件\n\
-          \    \"\"\"\n    \n    # 验证和转换生成数量\n    try:\n        count = int(generation_count.strip())\n\
-          \        if count < 1 or count > 10:\n            count = 1\n    except\
-          \ (ValueError, AttributeError):\n        count = 1\n    \n    # 话题类型映射和提示词模板\n\
-          \    topic_templates = {\n        \"娱乐八卦\": {\n            \"keywords\"\
-          : [\"明星\", \"娱乐圈\", \"影视\", \"综艺\", \"音乐\", \"时尚\"],\n            \"description\"\
-          : \"娱乐圈趣闻、明星动态、影视作品讨论\",\n            \"style\": \"轻松有趣，适合聊天\"\n       \
-          \ },\n        \"科技数码\": {\n            \"keywords\": [\"科技\", \"数码\", \"\
-          AI\", \"手机\", \"电脑\", \"创新\"],\n            \"description\": \"科技产品、数字生活、技术趋势\"\
-          ,\n            \"style\": \"专业但通俗易懂\"\n        },\n        \"生活时尚\": {\n\
-          \            \"keywords\": [\"生活\", \"时尚\", \"穿搭\", \"美妆\", \"居家\", \"品味\"\
-          ],\n            \"description\": \"生活方式、时尚搭配、美容护肤\",\n            \"style\"\
-          : \"实用且有趣味性\"\n        },\n        \"美食旅游\": {\n            \"keywords\"\
-          : [\"美食\", \"旅游\", \"餐厅\", \"景点\", \"文化\", \"体验\"],\n            \"description\"\
-          : \"美食推荐、旅行体验、地方文化\",\n            \"style\": \"诱人且富有体验感\"\n        },\n\
-          \        \"体育健身\": {\n            \"keywords\": [\"体育\", \"健身\", \"运动\"\
-          , \"锻炼\", \"比赛\", \"健康\"],\n            \"description\": \"运动健身、体育赛事、健康生活\"\
-          ,\n            \"style\": \"积极正能量\"\n        },\n        \"教育学习\": {\n \
-          \           \"keywords\": [\"教育\", \"学习\", \"知识\", \"技能\", \"成长\", \"发展\"\
-          ],\n            \"description\": \"学习方法、教育话题、知识分享\",\n            \"style\"\
-          : \"启发性和实用性\"\n        },\n        \"职场商业\": {\n            \"keywords\"\
-          : [\"职场\", \"商业\", \"工作\", \"管理\", \"创业\", \"发展\"],\n            \"description\"\
-          : \"职场技能、商业思维、工作生活\",\n            \"style\": \"专业且有指导意义\"\n        },\n\
-          \        \"情感心理\": {\n            \"keywords\": [\"情感\", \"心理\", \"关系\"\
-          , \"成长\", \"治愈\", \"感悟\"],\n            \"description\": \"情感话题、心理健康、人际关系\"\
-          ,\n            \"style\": \"温暖治愈，有共鸣\"\n        },\n        \"游戏动漫\": {\n\
-          \            \"keywords\": [\"游戏\", \"动漫\", \"二次元\", \"角色\", \"剧情\", \"\
-          社区\"],\n            \"description\": \"游戏体验、动漫作品、二次元文化\",\n            \"\
-          style\": \"有趣且有话题性\"\n        },\n        \"艺术文化\": {\n            \"keywords\"\
-          : [\"艺术\", \"文化\", \"创作\", \"审美\", \"传统\", \"现代\"],\n            \"description\"\
-          : \"艺术作品、文化现象、创作分享\",\n            \"style\": \"有深度且易于理解\"\n        }\n\
-          \    }\n    \n    # 获取当前类型的配置\n    current_config = topic_templates.get(topic_type,\
-          \ topic_templates[\"娱乐八卦\"])\n    \n    # 构建查询关键词用于向量检索\n    search_keywords\
-          \ = \" \".join(current_config[\"keywords\"][:3])  # 使用前3个关键词\n    \n   \
-          \ # 清理额外要求和人设信息\n    additional_req = additional_requirements.strip() if additional_requirements\
-          \ else \"\"\n    love_letter_req = love_letter_info.strip() if love_letter_info else \"\"\n    \n    # 为循环生成准备数组\n    loop_items = []\n    for i in range(count):\n\
+          \ str, additional_requirements: str, love_letter_info: str) -> dict:\n \
+          \   \"\"\"\n    预处理输入参数和准备查询条件\n    \"\"\"\n    \n    # 验证和转换生成数量\n    try:\n\
+          \        count = int(generation_count.strip())\n        if count < 1 or\
+          \ count > 10:\n            count = 1\n    except (ValueError, AttributeError):\n\
+          \        count = 1\n    \n    # 话题类型映射和提示词模板\n    topic_templates = {\n\
+          \        \"娱乐八卦\": {\n            \"keywords\": [\"明星\", \"娱乐圈\", \"影视\"\
+          , \"综艺\", \"音乐\", \"时尚\"],\n            \"description\": \"娱乐圈趣闻、明星动态、影视作品讨论\"\
+          ,\n            \"style\": \"轻松有趣，适合聊天\"\n        },\n        \"科技数码\": {\n\
+          \            \"keywords\": [\"科技\", \"数码\", \"AI\", \"手机\", \"电脑\", \"创新\"\
+          ],\n            \"description\": \"科技产品、数字生活、技术趋势\",\n            \"style\"\
+          : \"专业但通俗易懂\"\n        },\n        \"生活时尚\": {\n            \"keywords\"\
+          : [\"生活\", \"时尚\", \"穿搭\", \"美妆\", \"居家\", \"品味\"],\n            \"description\"\
+          : \"生活方式、时尚搭配、美容护肤\",\n            \"style\": \"实用且有趣味性\"\n        },\n\
+          \        \"美食旅游\": {\n            \"keywords\": [\"美食\", \"旅游\", \"餐厅\"\
+          , \"景点\", \"文化\", \"体验\"],\n            \"description\": \"美食推荐、旅行体验、地方文化\"\
+          ,\n            \"style\": \"诱人且富有体验感\"\n        },\n        \"体育健身\": {\n\
+          \            \"keywords\": [\"体育\", \"健身\", \"运动\", \"锻炼\", \"比赛\", \"健康\"\
+          ],\n            \"description\": \"运动健身、体育赛事、健康生活\",\n            \"style\"\
+          : \"积极正能量\"\n        },\n        \"教育学习\": {\n            \"keywords\":\
+          \ [\"教育\", \"学习\", \"知识\", \"技能\", \"成长\", \"发展\"],\n            \"description\"\
+          : \"学习方法、教育话题、知识分享\",\n            \"style\": \"启发性和实用性\"\n        },\n\
+          \        \"职场商业\": {\n            \"keywords\": [\"职场\", \"商业\", \"工作\"\
+          , \"管理\", \"创业\", \"发展\"],\n            \"description\": \"职场技能、商业思维、工作生活\"\
+          ,\n            \"style\": \"专业且有指导意义\"\n        },\n        \"情感心理\": {\n\
+          \            \"keywords\": [\"情感\", \"心理\", \"关系\", \"成长\", \"治愈\", \"感悟\"\
+          ],\n            \"description\": \"情感话题、心理健康、人际关系\",\n            \"style\"\
+          : \"温暖治愈，有共鸣\"\n        },\n        \"游戏动漫\": {\n            \"keywords\"\
+          : [\"游戏\", \"动漫\", \"二次元\", \"角色\", \"剧情\", \"社区\"],\n            \"description\"\
+          : \"游戏体验、动漫作品、二次元文化\",\n            \"style\": \"有趣且有话题性\"\n        },\n\
+          \        \"艺术文化\": {\n            \"keywords\": [\"艺术\", \"文化\", \"创作\"\
+          , \"审美\", \"传统\", \"现代\"],\n            \"description\": \"艺术作品、文化现象、创作分享\"\
+          ,\n            \"style\": \"有深度且易于理解\"\n        }\n    }\n    \n    # 获取当前类型的配置\n\
+          \    current_config = topic_templates.get(topic_type, topic_templates[\"\
+          娱乐八卦\"])\n    \n    # 构建查询关键词用于向量检索\n    search_keywords = \" \".join(current_config[\"\
+          keywords\"][:3])  # 使用前3个关键词\n    \n    # 清理额外要求和人设信息\n    additional_req\
+          \ = additional_requirements.strip() if additional_requirements else \"\"\
+          \n    love_letter_req = love_letter_info.strip() if love_letter_info else\
+          \ \"\"\n    \n    # 为循环生成准备数组\n    loop_items = []\n    for i in range(count):\n\
           \        loop_items.append({\n            \"index\": i + 1,\n          \
           \  \"topic_type\": topic_type,\n            \"search_keywords\": search_keywords,\n\
           \            \"query_text\": f\"{topic_type} {search_keywords}\"\n     \
           \   })\n    \n    return {\n        \"processed_topic_type\": topic_type,\n\
           \        \"validated_count\": count,\n        \"search_keywords\": search_keywords,\n\
           \        \"topic_config\": current_config,\n        \"additional_requirements\"\
-          : additional_req,\n        \"love_letter_info\": love_letter_req,\n        \"query_text\": f\"{topic_type} {search_keywords}\"\
-          ,\n        \"generation_context\": f\"类型：{topic_type}，关键词：{search_keywords}，要求：{additional_req}\"\
-          ,\n        \"loop_items\": loop_items\n    }\n"
+          : additional_req,\n        \"love_letter_info\": love_letter_req,\n    \
+          \    \"query_text\": f\"{topic_type} {search_keywords}\",\n        \"generation_context\"\
+          : f\"类型：{topic_type}，关键词：{search_keywords}，要求：{additional_req}\",\n    \
+          \    \"loop_items\": loop_items\n    }\n"
         code_language: python3
         desc: 预处理输入参数
         outputs:
@@ -287,6 +283,9 @@ workflow:
           loop_items:
             description: 循环生成项目数组
             type: array[object]
+          love_letter_info:
+            description: 角色人设信息
+            type: string
           processed_topic_type:
             description: 处理后的话题类型
             type: string
@@ -302,9 +301,6 @@ workflow:
           validated_count:
             description: 验证后的生成数量
             type: number
-          love_letter_info:
-            description: 角色人设信息
-            type: string
         selected: false
         title: 参数预处理
         type: code
@@ -357,15 +353,17 @@ workflow:
         prompt_template:
         - id: 3a89b9f5-3cc0-4f7d-9b28-f5b2bc8d91c3
           role: system
-          text: "你需要基于指定的AI角色人设来生成话题内容。\n\n**AI角色人设：**\n{% if 1736424595123.love_letter_info %}\n{{#1736424595123.love_letter_info#}}\n{% else %}\n- 性格：友善温和，善于倾听和理解\n- 表达方式：自然真实，贴近日常对话\n- 语言风格：简洁明了，不过于正式\n{% endif %}\n\n**当前生成任务：**\n- 话题类型：{{#1736424595123.processed_topic_type#}}\n\
+          text: "你需要基于指定的AI角色人设来生成话题内容。\n\n**AI角色人设：**\n{% if 1736424595123.love_letter_info\
+            \ %}\n{{#1736424595123.love_letter_info#}}\n{% else %}\n- 性格：友善温和，善于倾听和理解\n\
+            - 表达方式：自然真实，贴近日常对话\n- 语言风格：简洁明了，不过于正式\n{% endif %}\n\n**当前生成任务：**\n- 话题类型：{{#1736424595123.processed_topic_type#}}\n\
             - 话题风格：{{#1736424595123.topic_config.style#}}\n- 内容特征：{{#1736424595123.topic_config.description#}}\n\
             - 关键词范围：{{#1736424595123.search_keywords#}}\n{% if 1736424595123.additional_requirements\
             \ %}\n- 额外要求：{{#1736424595123.additional_requirements#}}\n{% endif %}\n\
             \n**生成要求：**\n1. 严格按照上述AI角色人设的性格特质和表达方式\n2. 话题要贴近现实，不要过于浮夸或不切实际\n3. 内容要具体生动，有讨论价值\n\
             4. 避免时效性话题（如具体日期、当前事件等）\n5. 内容长度100-200字，语言自然流畅\n6. 确保内容积极正面，符合角色人设\n\n\
             **输出格式：**\n严格按照以下JSON格式输出，不要添加任何其他文字：\n```json\n{\n  \"topic_title\":\
-            \ \"话题标题（10-30字）\",\n  \"topic_content\": \"详细内容描述（100-200字，体现角色人设）\",\n  \"\
-            category\": \"{{#1736424595123.processed_topic_type#}}\"\n}\n```\n"
+            \ \"话题标题（10-30字）\",\n  \"topic_content\": \"详细内容描述（100-200字，体现角色人设）\"\
+            ,\n  \"category\": \"{{#1736424595123.processed_topic_type#}}\"\n}\n```\n"
         - id: 8b7c9f2e-1c45-4d8f-9e32-a5d6c7b8f9e0
           role: user
           text: '请根据上述要求，为"{{#1736424595123.processed_topic_type#}}"类别生成一个全新的话题和内容。
@@ -438,9 +436,7 @@ workflow:
 
             ```json
 
-            {
-              "keywords": "关键词1 关键词2 关键词3 关键词4 关键词5"
-            }
+            { "keywords": "关键词1 关键词2 关键词3 关键词4 关键词5" }
 
             ```
 
@@ -490,24 +486,37 @@ workflow:
           \           }\n        \n        # 确保必要字段存在\n        title = topic_data.get(\"\
           topic_title\", \"未命名话题\")\n        content = topic_data.get(\"topic_content\"\
           , topic_content)\n        category = topic_data.get(\"category\", processed_topic_type)\n\
-          \        \n        # 处理关键词（可能是JSON格式）\n        try:\n            if search_keywords.strip().startswith('```json'):\n                # 提取JSON部分\n                json_match = re.search(r'```json\\s*\\n(.*?)\\n```', search_keywords, re.DOTALL)\n                if json_match:\n                    keywords_data = json.loads(json_match.group(1))\n                    keywords = keywords_data.get('keywords', search_keywords)\n                else:\n                    keywords = search_keywords\n            elif search_keywords.strip().startswith('{'):\n                keywords_data = json.loads(search_keywords)\n                keywords = keywords_data.get('keywords', search_keywords)\n            else:\n                keywords = search_keywords\n        except:\n            keywords = search_keywords\n        \n        # 清理和验证数据\n        title = title.strip()[:100]  # 限制标题长度\n        content = content.strip()[:1000]  # 限制内容长度\n        keywords = keywords.strip()[:200]  # 限制关键词长度\n        \n        # 准备数据库插入的数据格式\n\
-          \        db_data = {\n            \"type\": category,\n            \"topic\"\
-          : title,\n            \"content\": content,\n            \"search_keywords\"\
-          : keywords,\n            \"status\": \"generated\",\n            \"metadata\"\
-          : json.dumps({\n                \"generation_time\": datetime.datetime.now().isoformat(),\n\
-          \                \"workflow\": \"topic_generator\",\n                \"\
-          version\": \"1.0\"\n            }, ensure_ascii=False)\n        }\n    \
-          \    \n        return {\n            \"success\": \"true\",\n          \
-          \  \"db_data\": json.dumps(db_data, ensure_ascii=False),\n            \"\
-          parsed_title\": title,\n            \"parsed_content\": content,\n     \
-          \       \"parsed_keywords\": keywords,\n            \"parsed_category\"\
-          : category,\n            \"remaining_count\": max(0, validated_count - 1)\n\
-          \        }\n        \n    except Exception as e:\n        return {\n   \
-          \         \"success\": \"false\",\n            \"error\": str(e),\n    \
-          \        \"db_data\": \"{}\",\n            \"parsed_title\": \"解析失败\",\n\
-          \            \"parsed_content\": topic_content,\n            \"parsed_keywords\"\
-          : \"\",\n            \"parsed_category\": processed_topic_type,\n      \
-          \      \"remaining_count\": validated_count\n        }\n"
+          \        \n        # 处理关键词（可能是JSON格式）\n        try:\n            if search_keywords.strip().startswith('```json'):\n\
+          \                # 提取JSON部分\n                json_match = re.search(r'```json\\\
+          s*\\n(.*?)\\n```', search_keywords, re.DOTALL)\n                if json_match:\n\
+          \                    keywords_data = json.loads(json_match.group(1))\n \
+          \                   keywords = keywords_data.get('keywords', search_keywords)\n\
+          \                else:\n                    keywords = search_keywords\n\
+          \            elif search_keywords.strip().startswith('{'):\n           \
+          \     keywords_data = json.loads(search_keywords)\n                keywords\
+          \ = keywords_data.get('keywords', search_keywords)\n            else:\n\
+          \                keywords = search_keywords\n        except:\n         \
+          \   keywords = search_keywords\n        \n        # 清理和验证数据\n        title\
+          \ = title.strip()[:100]  # 限制标题长度\n        content = content.strip()[:1000]\
+          \  # 限制内容长度\n        keywords = keywords.strip()[:200]  # 限制关键词长度\n    \
+          \    \n        # 准备数据库插入的数据格式\n        db_data = {\n            \"type\"\
+          : category,\n            \"topic\": title,\n            \"content\": content,\n\
+          \            \"search_keywords\": keywords,\n            \"status\": \"\
+          generated\",\n            \"metadata\": json.dumps({\n                \"\
+          generation_time\": datetime.datetime.now().isoformat(),\n              \
+          \  \"workflow\": \"topic_generator\",\n                \"version\": \"1.0\"\
+          \n            }, ensure_ascii=False)\n        }\n        \n        return\
+          \ {\n            \"success\": \"true\",\n            \"db_data\": json.dumps(db_data,\
+          \ ensure_ascii=False),\n            \"parsed_title\": title,\n         \
+          \   \"parsed_content\": content,\n            \"parsed_keywords\": keywords,\n\
+          \            \"parsed_category\": category,\n            \"remaining_count\"\
+          : max(0, validated_count - 1)\n        }\n        \n    except Exception\
+          \ as e:\n        return {\n            \"success\": \"false\",\n       \
+          \     \"error\": str(e),\n            \"db_data\": \"{}\",\n           \
+          \ \"parsed_title\": \"解析失败\",\n            \"parsed_content\": topic_content,\n\
+          \            \"parsed_keywords\": \"\",\n            \"parsed_category\"\
+          : processed_topic_type,\n            \"remaining_count\": validated_count\n\
+          \        }\n"
         code_language: python3
         desc: 数据解析处理
         outputs:
@@ -686,7 +695,7 @@ workflow:
         selected: false
         title: 结果输出
         type: end
-      height: 90
+      height: 117
       id: '1736424600123'
       position:
         x: 2512
@@ -847,6 +856,6 @@ workflow:
       width: 44
       zIndex: 1002
     viewport:
-      x: -1522.142992653096
-      y: 197.29490596900573
+      x: -927.1429926530959
+      y: 193.9950867672758
       zoom: 0.7944344000961063

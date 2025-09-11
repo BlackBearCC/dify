@@ -258,3 +258,46 @@ class DataService:
         """获取当前时间戳"""
         from datetime import datetime
         return int(datetime.now().timestamp())
+    
+    def collect_global_market_data(self) -> Optional[Dict[str, Any]]:
+        """
+        收集全球市场数据
+        
+        Returns:
+            Optional[Dict]: 全球市场数据
+        """
+        try:
+            return self.data_collector.collect_global_market_data()
+        except Exception as e:
+            print(f"❌ 收集全球市场数据失败: {e}")
+            return {}
+    
+    def collect_trending_data(self) -> List[Dict[str, Any]]:
+        """
+        收集趋势数据
+        
+        Returns:
+            List[Dict]: 趋势数据列表
+        """
+        try:
+            # 获取热门币种的统计数据作为趋势数据
+            primary_symbols = self.settings.monitor.primary_symbols or []
+            market_stats = self.data_collector.collect_market_stats(primary_symbols)
+            
+            trending_list = []
+            for symbol, stats in market_stats.items():
+                if stats:
+                    trending_list.append({
+                        'symbol': symbol,
+                        'price_change_percent': stats.get('price_change_percent', 0),
+                        'volume': stats.get('volume', 0),
+                        'last_price': stats.get('last_price', 0)
+                    })
+            
+            # 按涨跌幅排序
+            trending_list.sort(key=lambda x: abs(x['price_change_percent']), reverse=True)
+            return trending_list
+            
+        except Exception as e:
+            print(f"❌ 收集趋势数据失败: {e}")
+            return []

@@ -319,9 +319,11 @@ class MasterBrain:
     def _call_llm_with_functions(self, prompt: str, functions: List[Dict[str, Any]]) -> str:
         """调用LLM with function calling"""
         if not self.llm_client:
+            print("❌ 主脑: LLM客户端未初始化")
             return "❌ LLM客户端未初始化"
         
         try:
+            print(f"🧠 主脑准备调用LLM，提示词长度: {len(prompt)} 字符")
             # 不同的LLM客户端可能有不同的function calling接口
             # 这里先用简单的方式实现，后续可以扩展
             
@@ -339,9 +341,11 @@ FUNCTION_CALL: function_name(param1=value1, param2=value2)
 """
             
             response = self.llm_client.call(enhanced_prompt)
+            print(f"🧠 LLM原始响应长度: {len(response)} 字符")
             
             # 解析是否包含function call
             processed_response = self._process_function_calls(response)
+            print(f"🧠 处理后响应长度: {len(processed_response)} 字符")
             
             return processed_response
             

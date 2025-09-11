@@ -225,6 +225,11 @@ class CryptoMonitorController:
     def stop_monitoring(self):
         """停止监控系统"""
         self.monitoring_service.stop_monitoring()
+        # 注释掉自动停止Telegram机器人，让其保持运行
+        # self._stop_telegram_bot()
+    
+    def stop_telegram_bot_only(self):
+        """仅停止Telegram机器人（监控系统继续运行）"""
         self._stop_telegram_bot()
     
     def get_monitoring_status(self) -> Dict[str, Any]:
@@ -262,6 +267,9 @@ class CryptoMonitorController:
             analysis_results['macro_analysis'],
             analysis_results['sentiment_analysis']
         )
+        
+        # 将研究摘要添加到分析结果中
+        analysis_results['research_summary'] = research_summary
         
         # 进行交易分析
         trading_analysis = self.portfolio_manager.conduct_trading_analysis(analysis_results, question)
@@ -326,7 +334,11 @@ class CryptoMonitorController:
             str: 市场情绪分析结果
         """
         try:
-            return self.analysis_service.market_analyst.analyze_market_sentiment()
+            # 获取市场数据
+            global_data = self.data_service.collect_global_market_data() or {}
+            trending_data = self.data_service.collect_trending_data() or []
+            
+            return self.analysis_service.market_analyst.analyze_market_sentiment(global_data, trending_data)
         except Exception as e:
             return f"❌ 市场情绪分析失败: {e}"
     
@@ -472,13 +484,20 @@ class CryptoMonitorController:
             str: 主脑的智能响应
         """
         try:
+            print(f"🧠 主脑开始处理用户消息: {message}")
             context = {
                 'source': source,
                 'message_type': 'user_request'
             }
-            return self.master_brain.process_request(message, context)
+            response = self.master_brain.process_request(message, context)
+            print(f"🧠 主脑处理完成，响应长度: {len(response)} 字符")
+            return response
         except Exception as e:
-            return f"❌ 处理用户消息失败: {e}"
+            error_msg = f"❌ 处理用户消息失败: {e}"
+            print(error_msg)
+            import traceback
+            traceback.print_exc()
+            return error_msg
 
 def main():
     """主函数 - 用于直接运行智能交易主脑系统"""
@@ -507,34 +526,26 @@ def main():
         print("2. 直接与主脑对话")
         print("3. Telegram智能交互（如果已配置）")
         
-        # 演示直接对话
-        print("与智能主脑对话演示：")
-        test_questions = [
-            "系统状态如何？",
-            "当前有什么交易机会吗？", 
-            "帮我分析一下BTC"
-        ]
-        
-        for question in test_questions:
-            print(f"用户: {question}")
-            try:
-                response = controller.process_user_message(question)
-                print(f"主脑: {response}")
-            except Exception as e:
-                print(f"处理失败: {e}")
-        
-        print("演示完成！系统已就绪")
+        print("系统初始化完成！")
+        print("🤖 启动智能监控和 Telegram 机器人...")
+        print("📱 用户可通过 Telegram 直接与主脑对话")
         print("启动心跳监控...")
         
         # 启动心跳监控
         controller.start_monitoring()
         
-        # 运行一段时间
-        print("运行30秒观察主脑决策...")
-        time.sleep(30)
+        # 持续运行，不自动停止
+        print("系统已启动，持续监控中...")
+        print("如需停止，请按 Ctrl+C")
         
-        print("停止系统...")
-        controller.stop_monitoring()
+        try:
+            # 持续运行，直到手动中断
+            while True:
+                time.sleep(10)
+        except KeyboardInterrupt:
+            print("\n收到停止信号，但保持 Telegram 机器人运行...")
+            controller.stop_monitoring()  # 只停止监控，不停止机器人
+            print("监控已停止，但 Telegram 机器人仍在运行")
         
     except Exception as e:
         print(f"系统启动失败: {e}")

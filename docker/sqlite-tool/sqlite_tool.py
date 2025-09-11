@@ -49,8 +49,7 @@ class UniversalSQLiteManager:
                     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                     status TEXT DEFAULT 'active',
-                    metadata TEXT,
-                    UNIQUE(topic, type)
+                    metadata TEXT
                 )
             ''')
             

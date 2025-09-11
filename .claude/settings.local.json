@@ -47,7 +47,11 @@
       "Bash(do echo \"Testing $file:\")",
       "Bash(done)",
       "WebFetch(domain:raw.githubusercontent.com)",
-      "WebFetch(domain:github.com)"
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:docs.dify.ai)",
+      "WebFetch(domain:dify.ai)",
+      "Bash(docker exec:*)",
+      "Bash(docker restart:*)"
     ],
     "deny": [],
     "ask": []

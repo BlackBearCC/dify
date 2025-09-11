@@ -72,6 +72,26 @@ class CryptoTelegramBot:
         # 交易确认状态管理
         self.pending_trades = {}  # 存储待确认的交易
         
+        # 事件循环管理
+        self.main_loop = None
+        
+    def _schedule_async_task(self, coro):
+        """安全地调度异步任务到主事件循环"""
+        if self.main_loop and not self.main_loop.is_closed():
+            try:
+                asyncio.run_coroutine_threadsafe(coro, self.main_loop)
+            except Exception as e:
+                print(f"❌ 异步任务调度失败: {e}")
+        else:
+            # 如果没有主循环，尝试在新的事件循环中运行
+            try:
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                loop.run_until_complete(coro)
+                loop.close()
+            except Exception as e:
+                print(f"❌ 异步任务执行失败: {e}")
+        
     def _create_main_menu(self):
         """创建主菜单键盘"""
         keyboard = [
@@ -290,13 +310,13 @@ class CryptoTelegramBot:
                     )
                     
                     # 发送分析结果
-                    asyncio.run(self._send_long_message(
+                    self._schedule_async_task(self._send_long_message(
                         update, 
                         f"📈 **{symbol_input} 完整分析报告**\n\n{result}"
                     ))
                     
                 except Exception as e:
-                    asyncio.run(update.message.reply_text(f"❌ 分析执行失败: {e}"))
+                    self._schedule_async_task(update.message.reply_text(f"❌ 分析执行失败: {e}"))
             
             # 在新线程中运行分析，避免阻塞
             analysis_thread = threading.Thread(target=run_analysis, daemon=True)
@@ -547,9 +567,14 @@ class CryptoTelegramBot:
                     f"Telegram按钮请求完整分析 {symbol_full}", 
                     [symbol_full]
                 )
-                asyncio.run(self._send_long_message_edit(query, f"📈 **{symbol} 完整分析报告**\n\n{result}"))
+                # 安全的异步调用方式
+                self._schedule_async_task(
+                    self._send_long_message_edit(query, f"📈 **{symbol} 完整分析报告**\n\n{result}")
+                )
             except Exception as e:
-                asyncio.run(query.edit_message_text(f"❌ 分析失败: {e}", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("◀️ 返回主菜单", callback_data="main_menu")]])))
+                self._schedule_async_task(
+                    query.edit_message_text(f"❌ 分析失败: {e}", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("◀️ 返回主菜单", callback_data="main_menu")]]))
+                )
         
         analysis_thread = threading.Thread(target=run_analysis, daemon=True)
         analysis_thread.start()
@@ -617,8 +642,11 @@ class CryptoTelegramBot:
                 return
                 
             except Exception as e:
-                await update.message.reply_text(f"❌ 消息处理失败: {e}")
-                print(f"❌ 消息处理错误: {e}")
+                error_msg = f"❌ 消息处理失败: {e}"
+                await update.message.reply_text(error_msg)
+                print(f"❌ Telegram消息处理错误: {e}")
+                import traceback
+                traceback.print_exc()
         
         # 简单的自然语言处理（兼容模式）
         if any(word in text.lower() for word in ['分析', 'analyze', '报告', 'report']):
@@ -661,6 +689,9 @@ class CryptoTelegramBot:
                 return
                 
             print("🤖 启动Telegram机器人...")
+            
+            # 保存主事件循环引用
+            self.main_loop = asyncio.get_event_loop()
             
             # 创建应用
             self.application = Application.builder().token(self.token).build()

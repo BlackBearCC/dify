@@ -10,8 +10,6 @@ dependencies:
   type: marketplace
   value:
     marketplace_plugin_unique_identifier: langgenius/volcengine_maas:0.0.30@0e6b13a721cc8fb7b928787f86ffc57655ace2cbc938c4738c209d70b18a85f8
-kind: app
-version: 0.3.1
 workflow:
   conversation_variables: []
   environment_variables: []
@@ -96,27 +94,16 @@ workflow:
     - data:
         isInIteration: false
         sourceType: code
-        targetType: knowledge-retrieval
-      id: 1736424595123-source-1736424596234-target
+        targetType: iteration
+      id: 1736424595123-source-1736424800000-target
       source: '1736424595123'
       sourceHandle: source
-      target: '1736424596234'
+      target: '1736424800000'
       targetHandle: target
       type: custom
       zIndex: 0
     - data:
-        isInIteration: false
-        sourceType: knowledge-retrieval
-        targetType: llm
-      id: 1736424596234-source-1736424598201-target
-      source: '1736424596234'
-      sourceHandle: source
-      target: '1736424598201'
-      targetHandle: target
-      type: custom
-      zIndex: 0
-    - data:
-        isInIteration: false
+        isInIteration: true
         sourceType: llm
         targetType: llm
       id: 1736424598201-source-1736424599234-target
@@ -127,7 +114,7 @@ workflow:
       type: custom
       zIndex: 0
     - data:
-        isInIteration: false
+        isInIteration: true
         sourceType: llm
         targetType: code
       id: 1736424599234-source-1736424601456-target
@@ -138,18 +125,7 @@ workflow:
       type: custom
       zIndex: 0
     - data:
-        isInIteration: false
-        sourceType: code
-        targetType: end
-      id: 1736424603678-source-1736424600123-target
-      source: '1736424603678'
-      sourceHandle: source
-      target: '1736424600123'
-      targetHandle: target
-      type: custom
-      zIndex: 0
-    - data:
-        isInLoop: false
+        isInIteration: true
         sourceType: code
         targetType: tool
       id: 1736424601456-source-1757476920544-target
@@ -160,13 +136,35 @@ workflow:
       type: custom
       zIndex: 0
     - data:
-        isInLoop: false
+        isInIteration: true
         sourceType: tool
         targetType: code
       id: 1757476920544-source-1736424603678-target
       source: '1757476920544'
       sourceHandle: source
       target: '1736424603678'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInIteration: false
+        sourceType: iteration
+        targetType: code
+      id: 1736424800000-source-1736424900000-target
+      source: '1736424800000'
+      sourceHandle: source
+      target: '1736424900000'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInIteration: false
+        sourceType: code
+        targetType: end
+      id: 1736424900000-source-1736424600123-target
+      source: '1736424900000'
+      sourceHandle: source
+      target: '1736424600123'
       targetHandle: target
       type: custom
       zIndex: 0
@@ -257,11 +255,11 @@ workflow:
           \ topic_templates[\"娱乐八卦\"])\n    \n    # 构建查询关键词用于向量检索\n    search_keywords\
           \ = \" \".join(current_config[\"keywords\"][:3])  # 使用前3个关键词\n    \n   \
           \ # 清理额外要求\n    additional_req = additional_requirements.strip() if additional_requirements\
-          \ else \"\"\n    \n    return {\n        \"processed_topic_type\": topic_type,\n\
+          \ else \"\"\n    \n    # 为循环生成准备数组\n    loop_items = []\n    for i in range(count):\n        loop_items.append({\n            \"index\": i + 1,\n            \"topic_type\": topic_type,\n            \"search_keywords\": search_keywords,\n            \"query_text\": f\"{topic_type} {search_keywords}\"\n        })\n    \n    return {\n        \"processed_topic_type\": topic_type,\n\
           \        \"validated_count\": count,\n        \"search_keywords\": search_keywords,\n\
           \        \"topic_config\": current_config,\n        \"additional_requirements\"\
           : additional_req,\n        \"query_text\": f\"{topic_type} {search_keywords}\"\
-          ,\n        \"generation_context\": f\"类型：{topic_type}，关键词：{search_keywords}，要求：{additional_req}\"\
+          ,\n        \"generation_context\": f\"类型：{topic_type}，关键词：{search_keywords}，要求：{additional_req}\",\n        \"loop_items\": loop_items\
           \n    }\n"
         code_language: python3
         desc: 预处理输入参数
@@ -287,6 +285,9 @@ workflow:
           validated_count:
             description: 验证后的生成数量
             type: number
+          loop_items:
+            description: 循环生成项目数组
+            type: array[object]
         selected: false
         title: 参数预处理
         type: code
@@ -317,52 +318,9 @@ workflow:
       type: custom
       width: 243
     - data:
-        dataset_configs:
-          datasets:
-            datasets: []
-          reranking_model:
-            enabled: false
-          retrieval_mode: single
-          score_threshold: 0.7
-          top_k: 5
-        dataset_ids:
-        - fN/6Jgr5Z3G3ousdC8zgGL2EslFDYDtFwOjw7fInBUgTZL7Ieie/fyIrF2WcryBs
-        desc: 检索已有话题避免重复
-        multiple_retrieval_config:
-          score_threshold: 0.7
-          top_k: 5
-        query_variable_selector:
-        - '1736424595123'
-        - query_text
-        retrieval_mode: single
-        selected: false
-        single_retrieval_config:
-          model:
-            completion_params: {}
-            mode: chat
-            name: Doubao-Seed-1.6
-            provider: langgenius/volcengine_maas/volcengine_maas
-        title: 话题去重检索
-        type: knowledge-retrieval
-      height: 119
-      id: '1736424596234'
-      position:
-        x: 688
-        y: 282
-      positionAbsolute:
-        x: 688
-        y: 282
-      selected: false
-      sourcePosition: right
-      targetPosition: left
-      type: custom
-      width: 243
-    - data:
         context:
-          enabled: true
-          variable_selector:
-          - '1736424596234'
-          - result
+          enabled: false
+          variable_selector: []
         desc: 生成话题和内容
         model:
           completion_params:
@@ -381,7 +339,7 @@ workflow:
             - 话题风格：{{#1736424595123.topic_config.style#}}\n- 内容特征：{{#1736424595123.topic_config.description#}}\n\
             - 关键词范围：{{#1736424595123.search_keywords#}}\n{% if 1736424595123.additional_requirements\
             \ %}\n- 额外要求：{{#1736424595123.additional_requirements#}}\n{% endif %}\n\
-            \n**已存在的相似话题（请避免重复）：**\n{{#1736424596234.result#}}\n\n**生成要求：**\n1. 生成1个全新的话题，确保与已有话题不重复\n\
+            \n**生成要求：**\n1. 生成1个全新且有趣的话题\n\
             2. 话题要有趣、有讨论价值，适合日常聊天\n3. 内容要具体生动，不要空泛的描述\n4. 避免时效性话题（如具体日期、当前事件等）\n5.\
             \ 内容长度100-300字，语言轻松自然\n6. 确保内容积极正面，无敏感信息\n\n**输出格式：**\n严格按照以下JSON格式输出，不要添加任何其他文字：\n\
             ```json\n{\n  \"topic_title\": \"话题标题（10-30字）\",\n  \"topic_content\"\
@@ -394,7 +352,7 @@ workflow:
 
             重点关注：
 
-            - 与现有话题的差异化
+            - 内容的原创性和独特性
 
             - 内容的趣味性和讨论价值
 
@@ -695,21 +653,25 @@ workflow:
         desc: 输出最终生成结果
         outputs:
         - value_selector:
-          - '1736424603678'
+          - '1736424900000'
           - formatted_result
           variable: result
         - value_selector:
-          - '1736424603678'
+          - '1736424900000'
           - final_success
           variable: success
         - value_selector:
-          - '1736424603678'
-          - database_record_id
-          variable: record_id
+          - '1736424900000'
+          - total_generated
+          variable: total_count
         - value_selector:
-          - '1736424601456'
-          - remaining_count
-          variable: remaining_count
+          - '1736424900000'
+          - success_count
+          variable: success_count
+        - value_selector:
+          - '1736424900000'
+          - failed_count
+          variable: failed_count
         selected: false
         title: 结果输出
         type: end
@@ -817,6 +779,77 @@ workflow:
         x: 1904
         y: 282
       selected: true
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 243
+    - data:
+        desc: 循环生成多个话题
+        iterator_selector:
+        - '1736424595123'
+        - loop_items
+        output_selector:
+        - '1736424603678'
+        - topic_data
+        output_type: array[object]
+        selected: false
+        title: 循环生成
+        type: iteration
+        start_node_id: '1736424598201'
+        iteration_id: '1736424800000'
+      height: 54
+      id: '1736424800000'
+      position:
+        x: 688
+        y: 282
+      positionAbsolute:
+        x: 688
+        y: 282
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 243
+    - data:
+        code: "import json\n\ndef main(iteration_results: list) -> dict:\n    \"\"\"\n    汇总所有循环生成的结果\n    \"\"\"\n    \n    try:\n        if not iteration_results:\n            return {\n                \"final_success\": \"false\",\n                \"formatted_result\": \"未生成任何话题\",\n                \"total_generated\": 0\n            }\n        \n        successful_topics = []\n        failed_topics = []\n        \n        for i, result in enumerate(iteration_results):\n            if isinstance(result, dict) and result.get('json') and isinstance(result['json'], list) and result['json']:\n                db_result = result['json'][0]\n                if db_result.get('success'):\n                    successful_topics.append({\n                        \"index\": i + 1,\n                        \"record_id\": db_result.get('record_id', 'unknown')\n                    })\n                else:\n                    failed_topics.append({\n                        \"index\": i + 1,\n                        \"error\": db_result.get('error', '未知错误')\n                    })\n        \n        total_count = len(iteration_results)\n        success_count = len(successful_topics)\n        \n        formatted_output = f\"\"\"🎉 话题生成批量完成！\n\n**生成统计：**\n- 总计生成：{total_count} 个话题\n- 成功存储：{success_count} 个\n- 失败数量：{len(failed_topics)} 个\n\n**成功的话题：**\n\"\"\"\n        \n        for topic in successful_topics:\n            formatted_output += f\"- 第{topic['index']}个话题 (记录ID: {topic['record_id']})\\n\"\n        \n        if failed_topics:\n            formatted_output += \"\\n**失败的话题：**\\n\"\n            for topic in failed_topics:\n                formatted_output += f\"- 第{topic['index']}个话题: {topic['error']}\\n\"\n        \n        formatted_output += \"\\n✅ 所有成功的话题已保存到SQLite数据库\"\n        \n        return {\n            \"final_success\": \"true\" if success_count > 0 else \"false\",\n            \"formatted_result\": formatted_output,\n            \"total_generated\": success_count,\n            \"success_count\": success_count,\n            \"failed_count\": len(failed_topics)\n        }\n        \n    except Exception as e:\n        return {\n            \"final_success\": \"false\",\n            \"formatted_result\": f\"结果汇总失败: {str(e)}\",\n            \"total_generated\": 0,\n            \"error\": str(e)\n        }\n"
+        code_language: python3
+        desc: 汇总循环生成结果
+        outputs:
+          final_success:
+            description: 最终操作是否成功
+            type: string
+          formatted_result:
+            description: 格式化的最终结果
+            type: string
+          total_generated:
+            description: 成功生成的数量
+            type: number
+          success_count:
+            description: 成功数量
+            type: number
+          failed_count:
+            description: 失败数量
+            type: number
+          error:
+            description: 错误信息
+            type: string
+        selected: false
+        title: 结果汇总
+        type: code
+        variables:
+        - value_selector:
+          - '1736424800000'
+          - output
+          variable: iteration_results
+      height: 81
+      id: '1736424900000'
+      position:
+        x: 2512
+        y: 282
+      positionAbsolute:
+        x: 2512
+        y: 282
+      selected: false
       sourcePosition: right
       targetPosition: left
       type: custom

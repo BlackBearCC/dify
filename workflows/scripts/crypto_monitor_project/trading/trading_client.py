@@ -57,7 +57,14 @@ class TradingClient:
             print("✅ 交易管理器初始化完成")
             
         except Exception as e:
+            error_msg = str(e)
             print(f"❌ 初始化币安客户端失败: {e}")
+            
+            if "-2015" in error_msg or "Invalid API-key" in error_msg:
+                print("💡 地理位置限制提示:")
+                print("   香港、新加坡等地区可能无法访问币安期货API")
+                print("   建议：1) 使用支持当地的交易所 2) 仅使用数据获取功能")
+            
             self.binance_client = None
     
     def get_account_balance(self):

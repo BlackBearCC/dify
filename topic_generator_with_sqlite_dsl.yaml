@@ -10,6 +10,8 @@ dependencies:
   type: marketplace
   value:
     marketplace_plugin_unique_identifier: langgenius/volcengine_maas:0.0.30@0e6b13a721cc8fb7b928787f86ffc57655ace2cbc938c4738c209d70b18a85f8
+kind: app
+version: 0.3.1
 workflow:
   conversation_variables: []
   environment_variables: []
@@ -149,25 +151,26 @@ workflow:
     - data:
         isInIteration: false
         sourceType: iteration
-        targetType: code
-      id: 1736424800000-source-1736424900000-target
-      source: '1736424800000'
-      sourceHandle: source
-      target: '1736424900000'
-      targetHandle: target
-      type: custom
-      zIndex: 0
-    - data:
-        isInIteration: false
-        sourceType: code
         targetType: end
-      id: 1736424900000-source-1736424600123-target
-      source: '1736424900000'
+      id: 1736424800000-source-1736424600123-target
+      source: '1736424800000'
       sourceHandle: source
       target: '1736424600123'
       targetHandle: target
       type: custom
       zIndex: 0
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: iteration-start
+        targetType: llm
+      id: 1736424800000start0-source-1736424598201-target
+      source: 1736424800000start0
+      sourceHandle: source
+      target: '1736424598201'
+      targetHandle: target
+      type: custom
+      zIndex: 1002
     nodes:
     - data:
         desc: 输入话题生成参数
@@ -205,6 +208,13 @@ workflow:
           required: false
           type: paragraph
           variable: additional_requirements
+        - description: AI角色人设信息
+          label: 角色人设
+          max_length: 2000
+          options: []
+          required: false
+          type: paragraph
+          variable: love_letter_info
       height: 169
       id: '1736424593742'
       position:
@@ -220,7 +230,7 @@ workflow:
       width: 243
     - data:
         code: "import json\nimport re\n\ndef main(topic_type: str, generation_count:\
-          \ str, additional_requirements: str) -> dict:\n    \"\"\"\n    预处理输入参数和准备查询条件\n\
+          \ str, additional_requirements: str, love_letter_info: str) -> dict:\n    \"\"\"\n    预处理输入参数和准备查询条件\n\
           \    \"\"\"\n    \n    # 验证和转换生成数量\n    try:\n        count = int(generation_count.strip())\n\
           \        if count < 1 or count > 10:\n            count = 1\n    except\
           \ (ValueError, AttributeError):\n        count = 1\n    \n    # 话题类型映射和提示词模板\n\
@@ -254,13 +264,17 @@ workflow:
           \    }\n    \n    # 获取当前类型的配置\n    current_config = topic_templates.get(topic_type,\
           \ topic_templates[\"娱乐八卦\"])\n    \n    # 构建查询关键词用于向量检索\n    search_keywords\
           \ = \" \".join(current_config[\"keywords\"][:3])  # 使用前3个关键词\n    \n   \
-          \ # 清理额外要求\n    additional_req = additional_requirements.strip() if additional_requirements\
-          \ else \"\"\n    \n    # 为循环生成准备数组\n    loop_items = []\n    for i in range(count):\n        loop_items.append({\n            \"index\": i + 1,\n            \"topic_type\": topic_type,\n            \"search_keywords\": search_keywords,\n            \"query_text\": f\"{topic_type} {search_keywords}\"\n        })\n    \n    return {\n        \"processed_topic_type\": topic_type,\n\
+          \ # 清理额外要求和人设信息\n    additional_req = additional_requirements.strip() if additional_requirements\
+          \ else \"\"\n    love_letter_req = love_letter_info.strip() if love_letter_info else \"\"\n    \n    # 为循环生成准备数组\n    loop_items = []\n    for i in range(count):\n\
+          \        loop_items.append({\n            \"index\": i + 1,\n          \
+          \  \"topic_type\": topic_type,\n            \"search_keywords\": search_keywords,\n\
+          \            \"query_text\": f\"{topic_type} {search_keywords}\"\n     \
+          \   })\n    \n    return {\n        \"processed_topic_type\": topic_type,\n\
           \        \"validated_count\": count,\n        \"search_keywords\": search_keywords,\n\
           \        \"topic_config\": current_config,\n        \"additional_requirements\"\
-          : additional_req,\n        \"query_text\": f\"{topic_type} {search_keywords}\"\
-          ,\n        \"generation_context\": f\"类型：{topic_type}，关键词：{search_keywords}，要求：{additional_req}\",\n        \"loop_items\": loop_items\
-          \n    }\n"
+          : additional_req,\n        \"love_letter_info\": love_letter_req,\n        \"query_text\": f\"{topic_type} {search_keywords}\"\
+          ,\n        \"generation_context\": f\"类型：{topic_type}，关键词：{search_keywords}，要求：{additional_req}\"\
+          ,\n        \"loop_items\": loop_items\n    }\n"
         code_language: python3
         desc: 预处理输入参数
         outputs:
@@ -270,6 +284,9 @@ workflow:
           generation_context:
             description: 生成上下文
             type: string
+          loop_items:
+            description: 循环生成项目数组
+            type: array[object]
           processed_topic_type:
             description: 处理后的话题类型
             type: string
@@ -285,9 +302,9 @@ workflow:
           validated_count:
             description: 验证后的生成数量
             type: number
-          loop_items:
-            description: 循环生成项目数组
-            type: array[object]
+          love_letter_info:
+            description: 角色人设信息
+            type: string
         selected: false
         title: 参数预处理
         type: code
@@ -304,6 +321,10 @@ workflow:
           - '1736424593742'
           - additional_requirements
           variable: additional_requirements
+        - value_selector:
+          - '1736424593742'
+          - love_letter_info
+          variable: love_letter_info
       height: 81
       id: '1736424595123'
       position:
@@ -328,6 +349,7 @@ workflow:
             max_tokens: 800
             presence_penalty: 0.2
             temperature: 0.8
+            thinking: disabled
             top_p: 0.9
           mode: chat
           name: Doubao-Seed-1.6
@@ -335,16 +357,15 @@ workflow:
         prompt_template:
         - id: 3a89b9f5-3cc0-4f7d-9b28-f5b2bc8d91c3
           role: system
-          text: "你是一个专业的话题内容生成专家，擅长创作吸引人的聊天话题。\n\n**当前生成任务：**\n- 话题类型：{{#1736424595123.processed_topic_type#}}\n\
+          text: "你需要基于指定的AI角色人设来生成话题内容。\n\n**AI角色人设：**\n{% if 1736424595123.love_letter_info %}\n{{#1736424595123.love_letter_info#}}\n{% else %}\n- 性格：友善温和，善于倾听和理解\n- 表达方式：自然真实，贴近日常对话\n- 语言风格：简洁明了，不过于正式\n{% endif %}\n\n**当前生成任务：**\n- 话题类型：{{#1736424595123.processed_topic_type#}}\n\
             - 话题风格：{{#1736424595123.topic_config.style#}}\n- 内容特征：{{#1736424595123.topic_config.description#}}\n\
             - 关键词范围：{{#1736424595123.search_keywords#}}\n{% if 1736424595123.additional_requirements\
             \ %}\n- 额外要求：{{#1736424595123.additional_requirements#}}\n{% endif %}\n\
-            \n**生成要求：**\n1. 生成1个全新且有趣的话题\n\
-            2. 话题要有趣、有讨论价值，适合日常聊天\n3. 内容要具体生动，不要空泛的描述\n4. 避免时效性话题（如具体日期、当前事件等）\n5.\
-            \ 内容长度100-300字，语言轻松自然\n6. 确保内容积极正面，无敏感信息\n\n**输出格式：**\n严格按照以下JSON格式输出，不要添加任何其他文字：\n\
-            ```json\n{\n  \"topic_title\": \"话题标题（10-30字）\",\n  \"topic_content\"\
-            : \"详细内容描述（100-300字）\",\n  \"category\": \"{{#1736424595123.processed_topic_type#}}\"\
-            \n}\n```\n"
+            \n**生成要求：**\n1. 严格按照上述AI角色人设的性格特质和表达方式\n2. 话题要贴近现实，不要过于浮夸或不切实际\n3. 内容要具体生动，有讨论价值\n\
+            4. 避免时效性话题（如具体日期、当前事件等）\n5. 内容长度100-200字，语言自然流畅\n6. 确保内容积极正面，符合角色人设\n\n\
+            **输出格式：**\n严格按照以下JSON格式输出，不要添加任何其他文字：\n```json\n{\n  \"topic_title\":\
+            \ \"话题标题（10-30字）\",\n  \"topic_content\": \"详细内容描述（100-200字，体现角色人设）\",\n  \"\
+            category\": \"{{#1736424595123.processed_topic_type#}}\"\n}\n```\n"
         - id: 8b7c9f2e-1c45-4d8f-9e32-a5d6c7b8f9e0
           role: user
           text: '请根据上述要求，为"{{#1736424595123.processed_topic_type#}}"类别生成一个全新的话题和内容。
@@ -389,6 +410,7 @@ workflow:
             max_tokens: 100
             presence_penalty: 0
             temperature: 0.3
+            thinking: disabled
             top_p: 0.9
           mode: chat
           name: Doubao-Seed-1.6
@@ -409,14 +431,18 @@ workflow:
 
             4. 包含话题类别的核心词汇
 
-            5. 关键词之间用空格分隔
-
 
             **输出格式：**
 
-            只输出关键词，用空格分隔，不要其他文字。
+            严格按照以下JSON格式输出，不要添加任何其他文字：
 
-            例如：娱乐 明星 八卦 热点 话题
+            ```json
+
+            {
+              "keywords": "关键词1 关键词2 关键词3 关键词4 关键词5"
+            }
+
+            ```
 
             '
         - id: 9c8e0f4d-3d57-6f0g-1g44-c7f8e9d0gb21
@@ -464,9 +490,7 @@ workflow:
           \           }\n        \n        # 确保必要字段存在\n        title = topic_data.get(\"\
           topic_title\", \"未命名话题\")\n        content = topic_data.get(\"topic_content\"\
           , topic_content)\n        category = topic_data.get(\"category\", processed_topic_type)\n\
-          \        \n        # 清理和验证数据\n        title = title.strip()[:100]  # 限制标题长度\n\
-          \        content = content.strip()[:1000]  # 限制内容长度\n        keywords =\
-          \ search_keywords.strip()[:200]  # 限制关键词长度\n        \n        # 准备数据库插入的数据格式\n\
+          \        \n        # 处理关键词（可能是JSON格式）\n        try:\n            if search_keywords.strip().startswith('```json'):\n                # 提取JSON部分\n                json_match = re.search(r'```json\\s*\\n(.*?)\\n```', search_keywords, re.DOTALL)\n                if json_match:\n                    keywords_data = json.loads(json_match.group(1))\n                    keywords = keywords_data.get('keywords', search_keywords)\n                else:\n                    keywords = search_keywords\n            elif search_keywords.strip().startswith('{'):\n                keywords_data = json.loads(search_keywords)\n                keywords = keywords_data.get('keywords', search_keywords)\n            else:\n                keywords = search_keywords\n        except:\n            keywords = search_keywords\n        \n        # 清理和验证数据\n        title = title.strip()[:100]  # 限制标题长度\n        content = content.strip()[:1000]  # 限制内容长度\n        keywords = keywords.strip()[:200]  # 限制关键词长度\n        \n        # 准备数据库插入的数据格式\n\
           \        db_data = {\n            \"type\": category,\n            \"topic\"\
           : title,\n            \"content\": content,\n            \"search_keywords\"\
           : keywords,\n            \"status\": \"generated\",\n            \"metadata\"\
@@ -547,7 +571,10 @@ workflow:
           \ success: bool) -> dict:\n    \"\"\"\n    处理SQLite API工具返回结果并格式化最终输出\n\
           \    \"\"\"\n    \n    try:\n        # 解析SQLite API工具返回的结果\n        # 处理不同的数据格式\n\
           \        if isinstance(sqlite_result, str):\n            db_result = json.loads(sqlite_result)\n\
-          \        elif isinstance(sqlite_result, dict):\n            # 检查是否是包装在json数组中的格式\n            if 'json' in sqlite_result and isinstance(sqlite_result['json'], list) and sqlite_result['json']:\n                db_result = sqlite_result['json'][0]  # 取第一个元素\n            else:\n                db_result = sqlite_result\n\
+          \        elif isinstance(sqlite_result, dict):\n            # 检查是否是包装在json数组中的格式\n\
+          \            if 'json' in sqlite_result and isinstance(sqlite_result['json'],\
+          \ list) and sqlite_result['json']:\n                db_result = sqlite_result['json'][0]\
+          \  # 取第一个元素\n            else:\n                db_result = sqlite_result\n\
           \        else:\n            db_result = sqlite_result\n        \n      \
           \  if db_result.get(\"success\", False):\n            record_id = db_result.get(\"\
           record_id\", \"unknown\")\n            \n            formatted_output =\
@@ -568,29 +595,32 @@ workflow:
           \ {parsed_content}\n**关键词：** {parsed_keywords}\n\n**错误信息：** {error_msg}\n\
           **详细信息：** {details}\n\n---\n**建议：** 请检查SQLite API服务是否正常运行，或重新尝试生成。\n   \
           \         \"\"\"\n            \n            return {\n                \"\
-          final_success\": \"false\",\n                \"database_record_id\": \"none\"\
-          ,\n                \"formatted_result\": formatted_output,\n           \
-          \     \"topic_data\": {\n                    \"type\": parsed_category,\n\
+          final_success\": \"false\",\n                \"database_record_id\": \"\
+          none\",\n                \"formatted_result\": formatted_output,\n     \
+          \           \"topic_data\": {\n                    \"type\": parsed_category,\n\
           \                    \"title\": parsed_title,\n                    \"content\"\
           : parsed_content,\n                    \"keywords\": parsed_keywords,\n\
           \                    \"record_id\": \"none\",\n                    \"error\"\
           : error_msg\n                },\n                \"error\": error_msg\n\
-          \            }\n            \n    except Exception\
-          \ as e:\n        formatted_output = f\"\"\"\n**结果处理异常！**\n\n**标题：** {parsed_title}\n\
-          **内容：** {parsed_content}\n\n**处理错误：** {str(e)}\n\n原始SQLite结果：{str(sqlite_result)}\n\
-          \n---\n**调试信息：** 请检查API工具配置和网络连接。\n        \"\"\"\n        \n        return\
-          \ {\n            \"final_success\": \"false\",\n            \"database_record_id\"\
-          : \"none\",\n            \"formatted_result\": formatted_output,\n      \
-          \      \"topic_data\": {\n                \"type\": parsed_category,\n  \
-          \              \"title\": parsed_title,\n                \"content\": parsed_content,\n\
-          \                \"keywords\": parsed_keywords,\n                \"record_id\"\
-          : \"none\",\n                \"error\": str(e)\n            },\n        \
-          \    \"error\": str(e)\n        }\n"
+          \            }\n            \n    except Exception as e:\n        formatted_output\
+          \ = f\"\"\"\n**结果处理异常！**\n\n**标题：** {parsed_title}\n**内容：** {parsed_content}\n\
+          \n**处理错误：** {str(e)}\n\n原始SQLite结果：{str(sqlite_result)}\n\n---\n**调试信息：**\
+          \ 请检查API工具配置和网络连接。\n        \"\"\"\n        \n        return {\n       \
+          \     \"final_success\": \"false\",\n            \"database_record_id\"\
+          : \"none\",\n            \"formatted_result\": formatted_output,\n     \
+          \       \"topic_data\": {\n                \"type\": parsed_category,\n\
+          \                \"title\": parsed_title,\n                \"content\":\
+          \ parsed_content,\n                \"keywords\": parsed_keywords,\n    \
+          \            \"record_id\": \"none\",\n                \"error\": str(e)\n\
+          \            },\n            \"error\": str(e)\n        }\n"
         code_language: python3
         desc: 处理数据库结果
         outputs:
           database_record_id:
             description: 数据库记录ID
+            type: string
+          error:
+            description: 错误信息
             type: string
           final_success:
             description: 最终操作是否成功
@@ -601,9 +631,6 @@ workflow:
           topic_data:
             description: 话题数据对象
             type: object
-          error:
-            description: 错误信息
-            type: string
         selected: false
         title: 结果处理
         type: code
@@ -653,29 +680,13 @@ workflow:
         desc: 输出最终生成结果
         outputs:
         - value_selector:
-          - '1736424900000'
-          - formatted_result
+          - '1736424800000'
+          - output
           variable: result
-        - value_selector:
-          - '1736424900000'
-          - final_success
-          variable: success
-        - value_selector:
-          - '1736424900000'
-          - total_generated
-          variable: total_count
-        - value_selector:
-          - '1736424900000'
-          - success_count
-          variable: success_count
-        - value_selector:
-          - '1736424900000'
-          - failed_count
-          variable: failed_count
         selected: false
         title: 结果输出
         type: end
-      height: 196
+      height: 90
       id: '1736424600123'
       position:
         x: 2512
@@ -755,7 +766,7 @@ workflow:
         provider_id: 9222afa0-590b-4f4d-844f-7cf11f00489f
         provider_name: SQL-lite
         provider_type: api
-        selected: true
+        selected: false
         title: insert_data
         tool_configurations: {}
         tool_description: Insert a record into the specified SQLite table
@@ -768,7 +779,7 @@ workflow:
             value: '{{#1736424601456.db_data#}}'
           table:
             type: mixed
-            value: 'topics'
+            value: topics
         type: tool
       height: 53
       id: '1757476920544'
@@ -778,13 +789,16 @@ workflow:
       positionAbsolute:
         x: 1904
         y: 282
-      selected: true
+      selected: false
       sourcePosition: right
       targetPosition: left
       type: custom
       width: 243
     - data:
         desc: 循环生成多个话题
+        error_handle_mode: terminated
+        is_parallel: false
+        iteration_id: '1736424800000'
         iterator_selector:
         - '1736424595123'
         - loop_items
@@ -792,12 +806,12 @@ workflow:
         - '1736424603678'
         - topic_data
         output_type: array[object]
+        parallel_nums: 10
         selected: false
+        start_node_id: 1736424800000start0
         title: 循环生成
         type: iteration
-        start_node_id: '1736424598201'
-        iteration_id: '1736424800000'
-      height: 54
+      height: 147
       id: '1736424800000'
       position:
         x: 688
@@ -809,52 +823,30 @@ workflow:
       sourcePosition: right
       targetPosition: left
       type: custom
-      width: 243
+      width: 253
     - data:
-        code: "import json\n\ndef main(iteration_results: list) -> dict:\n    \"\"\"\n    汇总所有循环生成的结果\n    \"\"\"\n    \n    try:\n        if not iteration_results:\n            return {\n                \"final_success\": \"false\",\n                \"formatted_result\": \"未生成任何话题\",\n                \"total_generated\": 0\n            }\n        \n        successful_topics = []\n        failed_topics = []\n        \n        for i, result in enumerate(iteration_results):\n            if isinstance(result, dict) and result.get('json') and isinstance(result['json'], list) and result['json']:\n                db_result = result['json'][0]\n                if db_result.get('success'):\n                    successful_topics.append({\n                        \"index\": i + 1,\n                        \"record_id\": db_result.get('record_id', 'unknown')\n                    })\n                else:\n                    failed_topics.append({\n                        \"index\": i + 1,\n                        \"error\": db_result.get('error', '未知错误')\n                    })\n        \n        total_count = len(iteration_results)\n        success_count = len(successful_topics)\n        \n        formatted_output = f\"\"\"🎉 话题生成批量完成！\n\n**生成统计：**\n- 总计生成：{total_count} 个话题\n- 成功存储：{success_count} 个\n- 失败数量：{len(failed_topics)} 个\n\n**成功的话题：**\n\"\"\"\n        \n        for topic in successful_topics:\n            formatted_output += f\"- 第{topic['index']}个话题 (记录ID: {topic['record_id']})\\n\"\n        \n        if failed_topics:\n            formatted_output += \"\\n**失败的话题：**\\n\"\n            for topic in failed_topics:\n                formatted_output += f\"- 第{topic['index']}个话题: {topic['error']}\\n\"\n        \n        formatted_output += \"\\n✅ 所有成功的话题已保存到SQLite数据库\"\n        \n        return {\n            \"final_success\": \"true\" if success_count > 0 else \"false\",\n            \"formatted_result\": formatted_output,\n            \"total_generated\": success_count,\n            \"success_count\": success_count,\n            \"failed_count\": len(failed_topics)\n        }\n        \n    except Exception as e:\n        return {\n            \"final_success\": \"false\",\n            \"formatted_result\": f\"结果汇总失败: {str(e)}\",\n            \"total_generated\": 0,\n            \"error\": str(e)\n        }\n"
-        code_language: python3
-        desc: 汇总循环生成结果
-        outputs:
-          final_success:
-            description: 最终操作是否成功
-            type: string
-          formatted_result:
-            description: 格式化的最终结果
-            type: string
-          total_generated:
-            description: 成功生成的数量
-            type: number
-          success_count:
-            description: 成功数量
-            type: number
-          failed_count:
-            description: 失败数量
-            type: number
-          error:
-            description: 错误信息
-            type: string
+        desc: ''
+        isInIteration: true
         selected: false
-        title: 结果汇总
-        type: code
-        variables:
-        - value_selector:
-          - '1736424800000'
-          - output
-          variable: iteration_results
-      height: 81
-      id: '1736424900000'
+        title: ''
+        type: iteration-start
+      draggable: false
+      height: 48
+      id: 1736424800000start0
+      parentId: '1736424800000'
       position:
-        x: 2512
-        y: 282
+        x: 24
+        y: 68
       positionAbsolute:
-        x: 2512
-        y: 282
-      selected: false
+        x: 712
+        y: 350
+      selectable: false
       sourcePosition: right
       targetPosition: left
-      type: custom
-      width: 243
+      type: custom-iteration-start
+      width: 44
+      zIndex: 1002
     viewport:
-      x: -1725.5301452556723
-      y: 133.47717847077206
-      zoom: 1.145517897979758
+      x: -1522.142992653096
+      y: 197.29490596900573
+      zoom: 0.7944344000961063

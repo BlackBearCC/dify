@@ -1,0 +1,116 @@
+
+app:
+  description: 测试iteration
+  icon: '#'
+  icon_background: '#FF6B6B'
+  mode: workflow
+  name: 测试iteration
+  use_icon_as_answer_icon: false
+
+workflow:
+  conversation_variables: []
+  environment_variables: []
+  features:
+    file_upload:
+      enabled: false
+    opening_statement: '测试iteration功能'
+    suggested_questions:
+    - 测试1
+    - 测试2
+  graph:
+    edges:
+    - data:
+        isInIteration: false
+        sourceType: start
+        targetType: code
+      id: start-code
+      source: 'start1'
+      sourceHandle: source
+      target: 'code1'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInIteration: false
+        sourceType: code
+        targetType: iteration
+      id: code-iteration
+      source: 'code1'
+      sourceHandle: source
+      target: 'iteration1'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInIteration: false
+        sourceType: iteration
+        targetType: end
+      id: iteration-end
+      source: 'iteration1'
+      sourceHandle: source
+      target: 'end1'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    nodes:
+    - data:
+        desc: 开始
+        title: 开始
+        type: start
+        variables:
+        - description: 数量
+          label: 数量
+          required: true
+          type: text-input
+          variable: count
+      height: 100
+      id: 'start1'
+      position: {x: 80, y: 282}
+      type: custom
+      width: 243
+    - data:
+        code: "def main(count: str) -> dict:
+    items = []
+    for i in range(int(count)):
+        items.append({"index": i+1})
+    return {"items": items}"
+        code_language: python3
+        desc: 生成数组
+        outputs:
+          items:
+            description: 循环项目
+            type: array
+        title: 生成数组
+        type: code
+        variables:
+        - value_selector: ['start1', 'count']
+          variable: count
+      height: 81
+      id: 'code1'
+      position: {x: 384, y: 282}
+      type: custom
+      width: 243
+    - data:
+        desc: 循环处理
+        iterator_selector: ['code1', 'items']
+        output_selector: []
+        output_type: array
+        title: 循环处理
+        type: iteration
+      height: 54
+      id: 'iteration1'
+      position: {x: 688, y: 282}
+      type: custom
+      width: 243
+    - data:
+        desc: 输出结果
+        outputs:
+        - value_selector: ['iteration1', 'output']
+          variable: result
+        title: 结果
+        type: end
+      height: 100
+      id: 'end1'
+      position: {x: 992, y: 282}
+      type: custom
+      width: 243

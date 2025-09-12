@@ -1,0 +1,167 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "SQLite Database Tool",
+    "description": "Universal SQLite database operations for Dify workflow data management",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "http://host.docker.internal:5555"
+    },
+    {
+      "url": "http://172.18.0.1:5555"
+    },
+    {
+      "url": "http://localhost:5555"
+    }
+  ],
+  "paths": {
+    "/insert_data": {
+      "post": {
+        "summary": "Insert Data",
+        "description": "Insert a record into the specified SQLite table",
+        "operationId": "insert_data",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["table", "data"],
+                "properties": {
+                  "table": {
+                    "type": "string",
+                    "description": "Name of the SQLite table to insert data into",
+                    "enum": ["topics", "workflow_data", "operation_logs"]
+                  },
+                  "data": {
+                    "type": "string",
+                    "description": "JSON string containing the data to insert"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {"type": "boolean"},
+                    "record_id": {"type": "integer"},
+                    "message": {"type": "string"}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/query_data": {
+      "post": {
+        "summary": "Query Data",
+        "description": "Query records from the specified SQLite table",
+        "operationId": "query_data",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["table"],
+                "properties": {
+                  "table": {
+                    "type": "string",
+                    "description": "Name of the SQLite table to query data from",
+                    "enum": ["topics", "workflow_data", "operation_logs"]
+                  },
+                  "conditions": {
+                    "type": "string",
+                    "description": "JSON string of query conditions",
+                    "default": "{}"
+                  },
+                  "limit": {
+                    "type": "integer",
+                    "description": "Maximum number of records to return",
+                    "default": 10
+                  },
+                  "order_by": {
+                    "type": "string",
+                    "description": "Sort order specification",
+                    "default": "created_at DESC"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful query",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {"type": "boolean"},
+                    "count": {"type": "integer"},
+                    "data": {"type": "array"}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/get_table_stats": {
+      "post": {
+        "summary": "Get Table Statistics",
+        "description": "Get structure and statistics information of a SQLite table",
+        "operationId": "get_table_stats",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["table"],
+                "properties": {
+                  "table": {
+                    "type": "string",
+                    "description": "Name of the table to get information about",
+                    "enum": ["topics", "workflow_data", "operation_logs"]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Table statistics retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {"type": "boolean"},
+                    "table": {"type": "string"},
+                    "columns": {"type": "array"},
+                    "record_count": {"type": "integer"}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

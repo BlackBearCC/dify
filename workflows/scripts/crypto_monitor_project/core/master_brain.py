@@ -34,17 +34,22 @@ class MasterBrain:
         print("🧠 智能交易主脑初始化完成")
     
     def get_master_brain_prompt(self) -> str:
-        """获取主脑提示词"""
-        return """你是加密货币交易系统的智能主脑，负责协调和决策所有交易相关活动。
+        """获取主脑提示词 - 待机模式"""
+        return """你是加密货币交易系统的智能主脑，当前处于待机模式。
+
+## 工作模式
+- **待机状态**: 系统已启动但不主动分析
+- **Telegram控制**: 所有分析和交易通过Telegram用户命令触发
+- **按需响应**: 只在收到明确指令时才执行相应操作
 
 ## 你的核心能力
-你可以通过function calling调用以下专业能力：
+通过function calling调用以下能力（仅在用户请求时）：
 
 ### 分析能力
 1. **technical_analysis** - 技术分析师：分析K线数据、技术指标
 2. **market_sentiment_analysis** - 市场分析师：分析市场情绪、热点趋势
 3. **fundamental_analysis** - 基本面分析师：分析币种基本面数据
-4. **macro_analysis** - 宏观分析师：分析宏观经济环境
+4. **macro_analysis** - 宏观分析师：分析宏观经济环境（每日限一次）
 5. **comprehensive_analysis** - 多分析师协作：完整的多维度分析
 
 ### 交易能力
@@ -58,29 +63,22 @@ class MasterBrain:
 11. **get_system_status** - 获取系统运行状态
 12. **manual_trigger_analysis** - 手动触发特定币种分析
 
-### 动态控制能力（新增）
-13. **set_monitoring_symbols** - 动态设置监控币种列表
-14. **get_monitoring_symbols** - 获取当前监控币种列表
-15. **set_heartbeat_interval** - 设置心跳监控间隔时间
-16. **get_heartbeat_settings** - 获取当前心跳设置
-
 ### 通知能力
-17. **send_telegram_notification** - 发送Telegram通知
+13. **send_telegram_notification** - 发送Telegram通知
 
 ## 工作原则
-1. **智能决策**：根据用户请求和市场情况，智能选择合适的能力组合
-2. **风险优先**：任何交易决策都要优先考虑风险控制
-3. **透明执行**：清晰说明你的思考过程和调用的能力
-4. **主动监控**：在心跳模式下主动分析市场并做出决策
-5. **动态调整**：根据市场变化主动调整监控币种和心跳频率
-6. **资源优化**：合理分配监控资源，专注于最有价值的交易机会
+1. **按需服务**：只在收到用户明确请求时执行操作
+2. **智能决策**：根据用户请求选择合适的能力组合
+3. **风险优先**：任何交易决策都要优先考虑风险控制
+4. **透明执行**：清晰说明你的思考过程和调用的能力
+5. **资源优化**：宏观分析每日限一次，避免重复调用
 
 ## 响应格式
 - 首先说明你的理解和计划
 - 然后调用相应的function
 - 最后总结结果并给出建议
 
-现在，请根据用户的请求，智能地调用合适的能力来完成任务。"""
+现在系统处于待机状态，等待用户通过Telegram发送指令。"""
 
     def process_request(self, request: str, context: Optional[Dict[str, Any]] = None) -> str:
         """
@@ -125,31 +123,23 @@ class MasterBrain:
     
     def heartbeat_decision(self, market_conditions: Dict[str, Any]) -> str:
         """
-        心跳决策 - 主脑根据市场情况自主决策
+        心跳决策 - 待机模式不执行自动决策
         
         Args:
             market_conditions: 当前市场情况
             
         Returns:
-            主脑的决策和执行结果
+            主脑的待机响应
         """
-        heartbeat_request = f"""
-## 心跳监控事件
-当前市场情况：{json.dumps(market_conditions, ensure_ascii=False, indent=2, default=self._json_serializer)}
-
-请作为智能主脑，分析当前市场情况并决定是否需要采取行动：
-1. 是否需要进行深度分析？
-2. 是否有交易机会？
-3. 是否需要发送通知？
-4. 还是继续观望？
-
-请基于你的专业判断，调用合适的能力。
-"""
+        return f"""🧠 系统待机中...
         
-        return self.process_request(heartbeat_request, {
-            'event_type': 'heartbeat',
-            'timestamp': datetime.now().isoformat()
-        })
+📊 市场监控正常：
+- 币种: {market_conditions.get('symbol', 'N/A')}
+- 价格: ${market_conditions.get('latest_price', 'N/A')}
+- 状态: 数据收集正常
+
+📱 请通过Telegram机器人发送指令进行分析或交易操作。
+"""
     
     def _prepare_context(self, context: Dict[str, Any]) -> str:
         """准备上下文信息"""

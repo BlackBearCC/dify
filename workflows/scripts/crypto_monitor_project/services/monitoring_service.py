@@ -55,7 +55,7 @@ class MonitoringService:
     
     def start_monitoring(self) -> bool:
         """
-        启动监控循环
+        启动监控循环 - 纯待机模式，只通过Telegram控制
         
         Returns:
             bool: 启动是否成功
@@ -64,7 +64,7 @@ class MonitoringService:
             print("⚠️ 监控系统已在运行")
             return False
         
-        print("🔄 启动监控系统...")
+        print("🔄 启动监控系统（待机模式）...")
         
         # 测试连接
         if not self._test_connections():
@@ -72,10 +72,10 @@ class MonitoringService:
             return False
         
         self.is_running = True
-        self.monitoring_thread = threading.Thread(target=self._monitoring_loop, daemon=True)
-        self.monitoring_thread.start()
         
-        print("✅ 监控系统已启动")
+        print("✅ 监控系统已启动（待机模式）")
+        print("📱 系统待机中，请通过Telegram机器人进行控制")
+        
         return True
     
     def stop_monitoring(self):

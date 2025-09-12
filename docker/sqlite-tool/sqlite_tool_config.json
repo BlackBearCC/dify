@@ -1,0 +1,157 @@
+{
+  "identity": {
+    "name": "sqlite_database_tool",
+    "author": "Dify User",
+    "label": {
+      "en_US": "SQLite Database Tool",
+      "zh_Hans": "SQLite数据库工具"
+    },
+    "description": {
+      "en_US": "Universal SQLite database operations for workflow data management",
+      "zh_Hans": "通用SQLite数据库操作工具，用于工作流数据管理"
+    },
+    "icon": "💾"
+  },
+  "tools": [
+    {
+      "name": "insert_data",
+      "label": {
+        "en_US": "Insert Data",
+        "zh_Hans": "插入数据"
+      },
+      "description": {
+        "en_US": "Insert a record into the specified SQLite table",
+        "zh_Hans": "向指定的SQLite表插入一条记录"
+      },
+      "parameters": [
+        {
+          "name": "table",
+          "type": "string",
+          "required": true,
+          "label": {
+            "en_US": "Table Name",
+            "zh_Hans": "表名"
+          },
+          "human_description": {
+            "en_US": "Name of the SQLite table to insert data into",
+            "zh_Hans": "要插入数据的SQLite表名"
+          },
+          "llm_description": "The name of the SQLite table where data will be inserted. Available tables: topics, workflow_data, operation_logs"
+        },
+        {
+          "name": "data",
+          "type": "string",
+          "required": true,
+          "label": {
+            "en_US": "Data (JSON)",
+            "zh_Hans": "数据(JSON格式)"
+          },
+          "human_description": {
+            "en_US": "JSON string containing the data to insert",
+            "zh_Hans": "包含要插入数据的JSON字符串"
+          },
+          "llm_description": "JSON string with key-value pairs representing the data to insert. Example: {\"type\": \"娱乐八卦\", \"topic\": \"标题\", \"content\": \"内容\", \"search_keywords\": \"关键词\"}"
+        }
+      ]
+    },
+    {
+      "name": "query_data",
+      "label": {
+        "en_US": "Query Data",
+        "zh_Hans": "查询数据"
+      },
+      "description": {
+        "en_US": "Query records from the specified SQLite table",
+        "zh_Hans": "从指定的SQLite表查询记录"
+      },
+      "parameters": [
+        {
+          "name": "table",
+          "type": "string",
+          "required": true,
+          "label": {
+            "en_US": "Table Name",
+            "zh_Hans": "表名"
+          },
+          "human_description": {
+            "en_US": "Name of the SQLite table to query data from",
+            "zh_Hans": "要查询数据的SQLite表名"
+          },
+          "llm_description": "The name of the SQLite table to query data from. Available tables: topics, workflow_data, operation_logs"
+        },
+        {
+          "name": "conditions",
+          "type": "string",
+          "required": false,
+          "default": "{}",
+          "label": {
+            "en_US": "Query Conditions (JSON)",
+            "zh_Hans": "查询条件(JSON格式)"
+          },
+          "human_description": {
+            "en_US": "JSON string of query conditions (optional)",
+            "zh_Hans": "查询条件的JSON字符串（可选）"
+          },
+          "llm_description": "JSON string with query conditions. Use * for wildcards. Example: {\"type\": \"娱乐八卦\"} or {} for all records"
+        },
+        {
+          "name": "limit",
+          "type": "number",
+          "required": false,
+          "default": 10,
+          "label": {
+            "en_US": "Limit",
+            "zh_Hans": "限制数量"
+          },
+          "human_description": {
+            "en_US": "Maximum number of records to return",
+            "zh_Hans": "返回记录的最大数量"
+          },
+          "llm_description": "Maximum number of records to return (default: 10)"
+        },
+        {
+          "name": "order_by",
+          "type": "string",
+          "required": false,
+          "default": "created_at DESC",
+          "label": {
+            "en_US": "Order By",
+            "zh_Hans": "排序方式"
+          },
+          "human_description": {
+            "en_US": "Sort order for the results",
+            "zh_Hans": "结果的排序方式"
+          },
+          "llm_description": "Sort order specification like 'created_at DESC' or 'id ASC'"
+        }
+      ]
+    },
+    {
+      "name": "get_table_stats",
+      "label": {
+        "en_US": "Get Table Statistics",
+        "zh_Hans": "获取表统计信息"
+      },
+      "description": {
+        "en_US": "Get structure and statistics information of a SQLite table",
+        "zh_Hans": "获取SQLite表的结构和统计信息"
+      },
+      "parameters": [
+        {
+          "name": "table",
+          "type": "string",
+          "required": true,
+          "label": {
+            "en_US": "Table Name",
+            "zh_Hans": "表名"
+          },
+          "human_description": {
+            "en_US": "Name of the table to get information about",
+            "zh_Hans": "要获取信息的表名"
+          },
+          "llm_description": "Name of the SQLite table to get structure and statistics for"
+        }
+      ]
+    }
+  ]
+}

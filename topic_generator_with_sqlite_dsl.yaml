@@ -89,9 +89,31 @@ workflow:
     - data:
         isInIteration: false
         sourceType: code
-        targetType: iteration
-      id: 1736424595123-source-1736424800000-target
+        targetType: llm
+      id: 1736424595123-source-1736424596000-target
       source: '1736424595123'
+      sourceHandle: source
+      target: '1736424596000'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInIteration: false
+        sourceType: llm
+        targetType: code
+      id: 1736424596000-source-1736424597000-target
+      source: '1736424596000'
+      sourceHandle: source
+      target: '1736424597000'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInIteration: false
+        sourceType: code
+        targetType: iteration
+      id: 1736424597000-source-1736424800000-target
+      source: '1736424597000'
       sourceHandle: source
       target: '1736424800000'
       targetHandle: target
@@ -158,6 +180,7 @@ workflow:
         sourceType: iteration-start
         targetType: llm
       id: 1736424800000start0-source-1736424598201-target
+      selected: false
       source: 1736424800000start0
       sourceHandle: source
       target: '1736424598201'
@@ -338,6 +361,187 @@ workflow:
         context:
           enabled: false
           variable_selector: []
+        desc: 批量生成话题标题
+        model:
+          completion_params:
+            frequency_penalty: 0.2
+            max_tokens: 500
+            presence_penalty: 0.1
+            temperature: 0.8
+            thinking: disabled
+            top_p: 0.9
+          mode: chat
+          name: Doubao-Seed-1.6
+          provider: langgenius/volcengine_maas/volcengine_maas
+        prompt_template:
+        - id: 1736424596000-system-prompt
+          role: system
+          text: '基于指定的AI角色人设来批量生成话题标题。
+
+
+            **AI角色人设：**
+
+            {{#1736424595123.love_letter_info#}}
+
+
+            **当前生成任务：**
+
+            - 话题类型：{{#1736424595123.processed_topic_type#}}
+
+            - 话题风格：{{#1736424595123.topic_config.style#}}
+
+            - 内容特征：{{#1736424595123.topic_config.description#}}
+
+            - 关键词范围：{{#1736424595123.search_keywords#}}
+
+            - 生成数量：{{#1736424595123.validated_count#}}条
+
+            - 额外要求：{{#1736424595123.additional_requirements#}}
+
+
+            **生成要求：**
+
+            1. 一次性生成{{#1736424595123.validated_count#}}个不同的话题标题
+
+            2. 每个标题都要独特，避免重复和相似
+
+            3. 标题应体现角色的知识领域和专业性
+
+            4. 标题长度控制在10字以内
+
+            5. 避免时效性话题和说教性语言
+
+            6. 标题要有吸引力和知识价值
+
+
+            **输出格式：**
+
+            严格按照以下JSON数组格式输出，不要添加任何其他文字：
+
+            ```json
+
+            ["标题1", "标题2", "标题3"]
+
+            ```'
+        - id: 1736424596000-user-prompt
+          role: user
+          text: 请根据上述要求，为"{{#1736424595123.processed_topic_type#}}"类别生成{{#1736424595123.validated_count#}}个不重复的话题标题。确保每个标题都独特且有价值。
+        selected: false
+        title: 批量话题标题生成
+        type: llm
+        variables: []
+        vision:
+          enabled: false
+      height: 117
+      id: '1736424596000'
+      position:
+        x: 628
+        y: 282
+      positionAbsolute:
+        x: 628
+        y: 282
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 243
+    - data:
+        code: "import json\nimport re\n\ndef main(topic_titles: str, processed_topic_type:\
+          \ str, search_keywords: str, additional_requirements: str, love_letter_info:\
+          \ str) -> dict:\n    \"\"\"\n    处理话题标题数组，为迭代准备数据\n    \"\"\"\n    \n  \
+          \  try:\n        # 清理输入数据\n        clean_input = topic_titles.strip()\n\
+          \        \n        # 解析话题标题JSON数组\n        if clean_input.startswith('```json'):\n\
+          \            # 提取JSON部分\n            json_match = re.search(r'```json\\\
+          s*\\n(.*?)\\n```', clean_input, re.DOTALL)\n            if json_match:\n\
+          \                titles_array = json.loads(json_match.group(1))\n      \
+          \      else:\n                raise ValueError(\"JSON格式解析失败\")\n       \
+          \ elif clean_input.startswith('[') and clean_input.endswith(']'):\n    \
+          \        # 直接解析JSON数组\n            titles_array = json.loads(clean_input)\n\
+          \        elif clean_input.startswith('\"[') and clean_input.endswith(']\"\
+          '):\n            # 处理被引号包围的JSON数组字符串\n            json_str = clean_input[1:-1]\
+          \  # 去除外层引号\n            titles_array = json.loads(json_str)\n        else:\n\
+          \            # 如果不是JSON格式，尝试按行分割\n            titles_array = [line.strip()\
+          \ for line in clean_input.split('\\n') if line.strip()]\n        \n    \
+          \    # 确保是数组格式\n        if not isinstance(titles_array, list):\n       \
+          \     titles_array = [str(titles_array)]\n        \n        # 清理数组中的空值\n\
+          \        titles_array = [title.strip() for title in titles_array if title\
+          \ and title.strip()]\n        \n        # 为每个标题创建循环项\n        loop_items\
+          \ = []\n        for i, title in enumerate(titles_array):\n            loop_items.append({\n\
+          \                \"index\": i + 1,\n                \"topic_title\": title,\n\
+          \                \"topic_type\": processed_topic_type,\n               \
+          \ \"search_keywords\": search_keywords,\n                \"additional_requirements\"\
+          : additional_requirements or \"\",\n                \"love_letter_info\"\
+          : love_letter_info or \"\"\n            })\n        \n        return {\n\
+          \            \"success\": \"true\",\n            \"titles_count\": len(loop_items),\n\
+          \            \"processed_titles\": titles_array,\n            \"topic_loop_items\"\
+          : loop_items,\n            \"generation_context\": f\"已生成{len(loop_items)}个话题标题，类型：{processed_topic_type}\"\
+          \n        }\n        \n    except Exception as e:\n        return {\n  \
+          \          \"success\": \"false\",\n            \"error\": str(e),\n   \
+          \         \"titles_count\": 0,\n            \"processed_titles\": [],\n\
+          \            \"topic_loop_items\": [],\n            \"generation_context\"\
+          : f\"标题处理失败：{str(e)}\"\n        }\n"
+        code_language: python3
+        desc: 处理话题标题数组
+        outputs:
+          error:
+            description: 错误信息
+            type: string
+          generation_context:
+            description: 生成上下文
+            type: string
+          processed_titles:
+            description: 处理后的标题数组
+            type: array[string]
+          success:
+            description: 处理是否成功
+            type: string
+          titles_count:
+            description: 标题数量
+            type: number
+          topic_loop_items:
+            description: 话题循环项目数组
+            type: array[object]
+        selected: false
+        title: 标题数组处理
+        type: code
+        variables:
+        - value_selector:
+          - '1736424596000'
+          - text
+          variable: topic_titles
+        - value_selector:
+          - '1736424595123'
+          - processed_topic_type
+          variable: processed_topic_type
+        - value_selector:
+          - '1736424595123'
+          - search_keywords
+          variable: search_keywords
+        - value_selector:
+          - '1736424595123'
+          - additional_requirements
+          variable: additional_requirements
+        - value_selector:
+          - '1736424595123'
+          - love_letter_info
+          variable: love_letter_info
+      height: 81
+      id: '1736424597000'
+      position:
+        x: 932
+        y: 282
+      positionAbsolute:
+        x: 932
+        y: 282
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 243
+    - data:
+        context:
+          enabled: false
+          variable_selector: []
         desc: 生成话题和内容
         model:
           completion_params:
@@ -353,28 +557,27 @@ workflow:
         prompt_template:
         - id: 3a89b9f5-3cc0-4f7d-9b28-f5b2bc8d91c3
           role: system
-          text: "  基于指定的AI角色人设来生成话题内容。\n\n  **AI角色人设：**\n  {{#1736424595123.love_letter_info#}}\n\
-            \n  **当前生成任务：**\n  - 话题类型：{{#1736424595123.processed_topic_type#}}\n \
-            \ - 话题风格：{{#1736424595123.topic_config.style#}}\n  - 内容特征：{{#1736424595123.topic_config.description#}}\n\
-            \  - 关键词范围：{{#1736424595123.search_keywords#}}\n  - 额外要求：{{#1736424595123.additional_requirements#}}\n\
-            \n  **生成要求：**\n  1. 内容应体现角色自身的知识见解和认知\n  2. 以角色的视角分享知识，不假设与他人对话\n  3.\
-            \ 避免使用第二人称（如\"你\"）和对话引导词汇\n  4. 内容要体现角色的专业素养和知识底蕴\n  5. 内容长度100-200字，符合角色的表达风格\n\
-            \  6. 避免时效性话题，注重知识的深度和价值\n  7. 展现角色对该领域的理解和思考\n\n  **输出格式：**\n  严格按照以下JSON格式输出，不要添加任何其他文字：\n\
-            \  ```json\n  {\n    \"topic_title\": \"话题标题（10字以内）\",\n    \"topic_content\"\
-            : \"角色自身的知识内容描述（100-200字，体现角色认知）\",\n    \"category\": \"{{#1736424595123.processed_topic_type#}}\"\
-            \n  }\n"
+          text: "基于指定的AI角色人设和给定话题标题来生成详细内容。\n\n**AI角色人设：**\n{{#love_letter_info#}}\n\
+            \n**当前生成任务：**\n- 话题标题：{{#topic_title#}}\n- 话题类型：{{#topic_type#}}\n\
+            - 关键词范围：{{#search_keywords#}}\n- 额外要求：{{#additional_requirements#}}\n\
+            \n**生成要求：**\n1. 基于给定的话题标题生成详细内容\n2. 内容应体现角色自身的知识见解和认知\n3. 以角色的视角分享知识，不假设与他人对话\n\
+            4. 避免使用第二人称（如\"你\"）和对话引导词汇\n5. 内容要体现角色的专业素养和知识底蕴\n6. 内容长度100-200字，符合角色的表达风格\n\
+            7. 避免时效性话题，注重知识的深度和价值\n8. 展现角色对该领域的理解和思考\n9. 不要说教，避免教导性和指导性语言\n\n**输出格式：**\n\
+            严格按照以下JSON格式输出，不要添加任何其他文字：\n```json\n{\n  \"topic_title\": \"{{#topic_title#}}\"\
+            ,\n  \"topic_content\": \"角色基于标题的知识内容描述（100-200字，体现角色认知）\",\n  \"category\"\
+            : \"{{#topic_type#}}\"\n}\n```"
         - id: 8b7c9f2e-1c45-4d8f-9e32-a5d6c7b8f9e0
           role: user
-          text: '请根据上述要求，为"{{#1736424595123.processed_topic_type#}}"类别生成一个全新的话题和内容。
+          text: '请根据上述要求，为给定的话题标题"{{#topic_title#}}"生成详细内容。
 
 
             重点关注：
 
-            - 内容的原创性和独特性
+            - 内容与标题的高度匹配性
 
-            - 内容的趣味性和讨论价值
+            - 角色专业知识的体现
 
-            - 适合AI聊天场景使用
+            - 内容的深度和价值
 
             '
         selected: false
@@ -388,11 +591,11 @@ workflow:
       parentId: '1736424800000'
       position:
         x: 304
-        y: 0
+        y: 80
       positionAbsolute:
-        x: 992
-        y: 282
-      selected: true
+        x: 1559.7913899170355
+        y: 549.1837638799788
+      selected: false
       sourcePosition: right
       targetPosition: left
       type: custom
@@ -462,10 +665,10 @@ workflow:
       parentId: '1736424800000'
       position:
         x: 608
-        y: 0
+        y: 80
       positionAbsolute:
-        x: 1296
-        y: 282
+        x: 1863.7913899170355
+        y: 549.1837638799788
       selected: false
       sourcePosition: right
       targetPosition: left
@@ -524,6 +727,9 @@ workflow:
           db_data:
             description: 数据库插入数据JSON
             type: string
+          error:
+            description: 错误信息
+            type: string
           parsed_category:
             description: 解析后的类别
             type: string
@@ -559,18 +765,18 @@ workflow:
           - processed_topic_type
           variable: processed_topic_type
         - value_selector:
-          - '1736424595123'
-          - validated_count
+          - '1736424597000'
+          - titles_count
           variable: validated_count
       height: 81
       id: '1736424601456'
       parentId: '1736424800000'
       position:
         x: 923
-        y: 0
+        y: 80
       positionAbsolute:
-        x: 1611.428911041789
-        y: 282
+        x: 2178.7913899170353
+        y: 549.1837638799788
       selected: false
       sourcePosition: right
       targetPosition: left
@@ -679,10 +885,10 @@ workflow:
       parentId: '1736424800000'
       position:
         x: 1520
-        y: 0
+        y: 80
       positionAbsolute:
-        x: 2208
-        y: 282
+        x: 2775.7913899170353
+        y: 549.1837638799788
       selected: false
       sourcePosition: right
       targetPosition: left
@@ -701,10 +907,10 @@ workflow:
       height: 117
       id: '1736424600123'
       position:
-        x: 2512
+        x: 1540
         y: 282
       positionAbsolute:
-        x: 2512
+        x: 1540
         y: 282
       selected: false
       sourcePosition: right
@@ -798,10 +1004,10 @@ workflow:
       parentId: '1736424800000'
       position:
         x: 1216
-        y: 0
+        y: 80
       positionAbsolute:
-        x: 1904
-        y: 282
+        x: 2471.7913899170353
+        y: 549.1837638799788
       selected: false
       sourcePosition: right
       targetPosition: left
@@ -813,30 +1019,31 @@ workflow:
         is_parallel: false
         iteration_id: '1736424800000'
         iterator_selector:
-        - '1736424595123'
-        - loop_items
+        - '1736424597000'
+        - topic_loop_items
         output_selector:
         - '1736424603678'
         - topic_data
         output_type: array[object]
         parallel_nums: 10
-        selected: false
+        selected: true
         start_node_id: 1736424800000start0
         title: 循环生成
         type: iteration
-      height: 147
+        width: 1779
+      height: 280
       id: '1736424800000'
       position:
-        x: 688
-        y: 282
+        x: 1255.7913899170355
+        y: 549.1837638799788
       positionAbsolute:
-        x: 688
-        y: 282
-      selected: false
+        x: 1255.7913899170355
+        y: 549.1837638799788
+      selected: true
       sourcePosition: right
       targetPosition: left
       type: custom
-      width: 253
+      width: 1779
     - data:
         desc: ''
         isInIteration: true
@@ -849,10 +1056,10 @@ workflow:
       parentId: '1736424800000'
       position:
         x: 24
-        y: 68
+        y: 150
       positionAbsolute:
-        x: 712
-        y: 350
+        x: 1279.7913899170355
+        y: 617.1837638799788
       selectable: false
       sourcePosition: right
       targetPosition: left
@@ -860,6 +1067,6 @@ workflow:
       width: 44
       zIndex: 1002
     viewport:
-      x: 22.689862449477914
-      y: 281.98771527019073
-      zoom: 0.4948965777674281
+      x: -320.1275307572266
+      y: 305.6784501346898
+      zoom: 0.40421617852690533

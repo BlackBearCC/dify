@@ -13,6 +13,8 @@ project_root = Path(__file__).parent
 sys.path.insert(0, str(project_root))
 
 from generators.topic_generator import TopicGenerator
+from generators.image_description_generator import ImageDescriptionGenerator
+from generators.content_matcher import ContentMatcher
 from db_viewer import DatabaseViewer
 
 
@@ -21,10 +23,11 @@ def show_menu():
     print("\n" + "="*50)
     print("         📝 内容生成器")
     print("="*50)
-    print("1. 话题生成")
-    print("2. 图片描述生成 (开发中)")
-    print("3. 笑话生成 (开发中)")
-    print("4. 记忆生成 (开发中)")
+    print("1. 话题生成 (支持1-99个话题，2-20并发)")
+    print("2. 图片描述生成 (基于ImageRecognitionWorkflow编号系统)")
+    print("3. 内容匹配生成 (将内容转换为查询词条)")
+    print("4. 笑话生成 (开发中)")
+    print("5. 记忆生成 (开发中)")
     print("8. 数据库查看工具")
     print("0. 退出")
     print("="*50)
@@ -34,6 +37,8 @@ def main():
     """主函数"""
     generators = {
         '1': TopicGenerator(),
+        '2': ImageDescriptionGenerator(),
+        '3': ContentMatcher(),
     }
     
     db_viewer = DatabaseViewer()

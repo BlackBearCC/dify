@@ -23,7 +23,7 @@ LLM_CONFIG = {
     
     # DeepSeek API配置
     "deepseek": {
-        "api_key": os.environ.get("DEEPSEEK_API_KEY", "your-deepseek-api-key-here"),
+        "api_key": os.environ.get("DEEPSEEK_API_KEY", "b633a622-b5d0-4f16-a8a9-616239cf15d1"),
         "model": "deepseek-V3",
         "base_url": None  # 使用默认URL
     }
@@ -48,10 +48,20 @@ GENERATION_CONFIG = {
 
 # 话题分类配置
 TOPIC_CATEGORIES = {
-    "1": {"name": "娱乐八卦", "keywords": ["明星", "娱乐圈", "影视"]},
-    "2": {"name": "科技数码", "keywords": ["科技", "数码", "AI"]},
-    "3": {"name": "生活时尚", "keywords": ["生活", "时尚", "穿搭"]},
-    "4": {"name": "美食旅游", "keywords": ["美食", "旅游", "餐厅"]},
-    "5": {"name": "体育健身", "keywords": ["体育", "健身", "运动"]},
-    "6": {"name": "教育学习", "keywords": ["教育", "学习", "知识"]},
+    "1": {"name": "娱乐"},
+    "2": {"name": "八卦"},
+    "3": {"name": "科技"},
+    "4": {"name": "数码"},
+    "5": {"name": "生活"},
+    "6": {"name": "时尚"},
+    "7": {"name": "美食"},
+    "8": {"name": "旅游"},
+    "9": {"name": "体育"},
+    "10": {"name": "健身"},
+    "11": {"name": "教育"},
+    "12": {"name": "学习"},
+    "13": {"name": "日常"},
+    "14": {"name": "情感"},
+    "15": {"name": "趣事"},
+    "16": {"name": "故事"},
 }

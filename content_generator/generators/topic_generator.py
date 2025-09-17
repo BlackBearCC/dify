@@ -10,6 +10,9 @@ from pathlib import Path
 import sys
 import os
 import re
+import asyncio
+import concurrent.futures
+from typing import List, Dict, Any
 
 # 添加core模块到路径
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
@@ -172,7 +175,7 @@ class TopicGenerator:
             print("❌ 无效选择，使用默认角色")
             return "客观专业的知识分享者"
         
-    def generate_titles(self, category, count, persona):
+    def generate_titles(self, category, count, persona, additional_info=""):
         """生成话题标题"""
         system_prompt = self.load_prompt_template("topic_title_generation_system")
         if not system_prompt:
@@ -185,8 +188,14 @@ class TopicGenerator:
 {persona}
 
 话题分类：{category['name']}
-关键词：{', '.join(category['keywords'])}
-生成数量：{count}个
+生成数量：{count}个"""
+
+        # 如果有附加信息，添加到用户消息中
+        if additional_info:
+            user_message += f"""
+附加信息：{additional_info}"""
+
+        user_message += """
 
 请严格按照JSON数组格式输出标题列表：
 ["标题1", "标题2", "标题3", ...]"""
@@ -215,7 +224,7 @@ class TopicGenerator:
             
         return titles[:count]
         
-    def generate_content(self, title, category, persona):
+    def generate_content(self, title, category, persona, additional_info=""):
         """为标题生成详细内容"""
         system_prompt = self.load_prompt_template("topic_content_generation_system")
         if not system_prompt:
@@ -234,8 +243,12 @@ class TopicGenerator:
 
 **当前生成任务：**
 - 话题标题：{title}
-- 话题类型：{category['name']}
-- 关键词范围：{', '.join(category['keywords'])}"""
+- 话题类型：{category['name']}"""
+
+        # 如果有附加信息，添加到用户消息中
+        if additional_info:
+            user_message += f"""
+- 附加信息：{additional_info}"""
         
         print(f"📝 正在为'{title}'生成内容...")
         content_config = GENERATION_CONFIG["content_generation"]
@@ -254,6 +267,50 @@ class TopicGenerator:
         
         # 使用通用JSON提取器解析内容
         return JSONExtractor.extract_field_from_json(response, 'topic_content')
+        
+    def generate_single_topic(self, title: str, category: dict, persona: str, index: int, additional_info: str = "") -> Dict[str, Any]:
+        """生成单个话题（用于并发执行）"""
+        print(f"  📝 生成第 {index} 个话题: {title}")
+        content = self.generate_content(title, category, persona, additional_info)
+        keywords = category['name']
+        
+        topic_id = self.save_topic(category['name'], title, content, keywords)
+        return {
+            'id': topic_id,
+            'title': title,
+            'content': content,
+            'index': index
+        }
+    
+    def generate_topics_concurrent(self, titles: List[str], category: dict, persona: str, max_workers: int, additional_info: str = "") -> List[Dict[str, Any]]:
+        """并发生成多个话题内容"""
+        print(f"🚀 开始并发生成，并发数: {max_workers}")
+        
+        with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+            # 提交所有任务
+            future_to_index = {
+                executor.submit(self.generate_single_topic, title, category, persona, i + 1, additional_info): i 
+                for i, title in enumerate(titles)
+            }
+            
+            generated = []
+            completed = 0
+            total = len(titles)
+            
+            # 获取结果
+            for future in concurrent.futures.as_completed(future_to_index):
+                try:
+                    result = future.result()
+                    generated.append(result)
+                    completed += 1
+                    print(f"  ✅ 完成进度: {completed}/{total}")
+                except Exception as e:
+                    index = future_to_index[future] + 1
+                    print(f"  ❌ 第 {index} 个话题生成失败: {e}")
+            
+            # 按原始顺序排序
+            generated.sort(key=lambda x: x['index'])
+            return generated
         
     def save_topic(self, category, title, content, keywords=""):
         """保存话题到数据库"""
@@ -293,7 +350,7 @@ class TopicGenerator:
         for key, value in categories.items():
             print(f"{key}. {value['name']}")
             
-        category_choice = input("请选择分类 (1-6): ").strip()
+        category_choice = input("请选择分类 (1-16): ").strip()
         if category_choice not in categories:
             print("❌ 无效分类")
             return
@@ -302,34 +359,58 @@ class TopicGenerator:
         
         # 设置生成数量
         try:
-            count = int(input("生成数量 (1-10): "))
-            if not 1 <= count <= 10:
+            count = int(input("生成数量 (1-99): "))
+            if not 1 <= count <= 99:
                 raise ValueError()
         except ValueError:
-            print("❌ 无效数量")
+            print("❌ 无效数量，请输入1-99")
             return
+            
+        # 设置并发数量
+        if count > 1:
+            try:
+                max_concurrent = min(count, 20)  # 最大20并发
+                concurrent = int(input(f"并发数量 (2-{max_concurrent}, 回车默认{min(count, 5)}): ") or min(count, 5))
+                if not 2 <= concurrent <= max_concurrent:
+                    concurrent = min(count, 5)
+                    print(f"⚠️ 无效并发数，使用默认值: {concurrent}")
+            except ValueError:
+                concurrent = min(count, 5)
+                print(f"⚠️ 输入错误，使用默认并发数: {concurrent}")
+        else:
+            concurrent = 1
             
         # 设置角色人设
         persona = self.select_persona()
         
+        # 获取附加信息
+        additional_info = input("\n📝 附加信息 (可选，直接回车跳过): ").strip()
+        if additional_info:
+            print(f"✅ 已添加附加信息: {additional_info}")
+        
         print(f"\n🚀 开始生成 {count} 个 {category['name']} 话题...")
         
         # 生成标题
-        titles = self.generate_titles(category, count, persona)
+        titles = self.generate_titles(category, count, persona, additional_info)
         
-        # 为每个标题生成内容并保存
-        generated = []
-        for i, title in enumerate(titles, 1):
-            print(f"  📝 生成第 {i} 个话题: {title}")
-            content = self.generate_content(title, category, persona)
-            keywords = " ".join(category['keywords'])
-            
-            topic_id = self.save_topic(category['name'], title, content, keywords)
-            generated.append({
-                'id': topic_id,
-                'title': title,
-                'content': content
-            })
+        # 根据并发数量选择生成方式
+        if concurrent == 1:
+            # 单线程顺序生成
+            generated = []
+            for i, title in enumerate(titles, 1):
+                print(f"  📝 生成第 {i} 个话题: {title}")
+                content = self.generate_content(title, category, persona, additional_info)
+                keywords = category['name']
+                
+                topic_id = self.save_topic(category['name'], title, content, keywords)
+                generated.append({
+                    'id': topic_id,
+                    'title': title,
+                    'content': content
+                })
+        else:
+            # 并发生成
+            generated = self.generate_topics_concurrent(titles, category, persona, concurrent, additional_info)
             
         # 显示生成结果
         print(f"\n✅ 成功生成 {len(generated)} 个话题!")
